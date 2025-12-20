@@ -1,0 +1,21 @@
+{
+  "name": "dac-myga-site",
+  "version": "0.1.0",
+  "private": false,
+  "homepage": "https://DonovanHou2023.github.io/dac-myga-intro",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "marked": "^5.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "gh-pages": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}

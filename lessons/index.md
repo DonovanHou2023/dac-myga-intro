@@ -1,5 +1,6 @@
 ---
-title: DAC MYGA Intro
+title: Donovan's Actuarial Class
+subtitle: Multi-year Guaranteed Annuity (MYGA) Foundation
 ---
 
 # DAC MYGA Intro — Course Home

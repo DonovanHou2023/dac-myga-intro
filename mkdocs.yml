@@ -1,23 +1,18 @@
-site_name: DAC MYGA Intro
+site_name: Donovan's Actuarial Class - MYGA Foundation
 site_url: https://DonovanHou2023.github.io/dac-myga-intro
 docs_dir: lessons
 site_dir: mkdocs_site
 nav:
   - Home: index.md
   - Lessons:
-      - Lesson 1: 01-foundations-review/objectives.md
+      - Lesson 1: 01-foundations-review/lecture.md
+      - Lesson 2: 02-myga-overview/lecture.md
 theme:
   name: material
   palette:
     scheme: default
-    primary: 'blue'
-    accent: 'orange'
-  font:
-    text: 'Inter, Roboto, Arial, sans-serif'
-  features:
-    - navigation.expand
-    - navigation.sections
-    - navigation.instant
+    primary: '#0B3D91'    # deep blue primary
+    accent: '#0A75D1'     # slightly brighter accent
 
 markdown_extensions:
   - admonition

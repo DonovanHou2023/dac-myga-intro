@@ -3,7 +3,7 @@ title: Donovan's Actuarial Class
 subtitle: Multi-year Guaranteed Annuity (MYGA) Foundation
 ---
 
-# DAC MYGA Intro — Course Home hi
+# DAC MYGA Intro — Course Home
 
 Welcome — this documentation site is generated from the `lessons/` directory.
 

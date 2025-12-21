@@ -70,6 +70,25 @@ mkdocs build -d mkdocs_site
 
 - The GitHub Actions workflow `.github/workflows/mkdocs-deploy.yml` builds the site and deploys the `mkdocs_site` folder to the `gh-pages` branch on push to `main`.
 
+Automatic GitHub Pages deployment (recommended)
+-------------------------------------------------
+This repo now contains a workflow that builds the MkDocs site and publishes it to GitHub Pages using the official Pages artifact flow.
+
+- Workflow file: `.github/workflows/mkdocs-pages-deploy.yml`.
+- What it does:
+  - Installs Python and dependencies from `requirements.txt`.
+  - Runs `mkdocs build -d site` to generate the static site.
+  - Uploads the `site/` output as a Pages artifact and invokes the Pages deploy action.
+
+How to trigger a publish
+- Push or merge to the `main` branch. The workflow runs automatically and publishes the site.
+
+What to check in GitHub
+- Actions → check the `Build and publish MkDocs site` run for build and deploy steps and any errors.
+- Settings → Pages: After the first successful run, GitHub Pages will be configured to serve the published site (the workflow uses the Pages deploy action which integrates with the Pages settings).
+
+If you still prefer the older `gh-pages` branch approach (peaceiris/actions-gh-pages), tell me and I can switch workflows — but the Pages artifact flow is the recommended and supported method.
+
 Using MkDocs Material theme
 --------------------------------
 This repository is configured to use the `mkdocs-material` theme for a more polished site. To preview locally with the Material theme and syntax highlighting, run:

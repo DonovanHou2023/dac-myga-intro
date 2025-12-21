@@ -1,12 +1,11 @@
 site_name: Donovan's Actuarial Class - MYGA Foundation
 site_url: https://DonovanHou2023.github.io/dac-myga-intro
-docs_dir: lessons
+docs_dir: docs
 site_dir: mkdocs_site
 nav:
   - Home: index.md
   - Lessons:
-      - Lesson 1: 01-foundations-review/lecture.md
-      - Lesson 2: 02-myga-overview/lecture.md
+      - Lesson 1: lessons/lecture1.md
 theme:
   name: material
   palette:
@@ -18,8 +17,14 @@ markdown_extensions:
   - admonition
   - codehilite
   - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
   - toc:
       permalink: true
 
 plugins:
   - search
+
+extra_javascript:
+  # MathJax for rendering LaTeX-style math ($...$ and $$...$$)
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js

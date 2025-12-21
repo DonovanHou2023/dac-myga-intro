@@ -1,0 +1,30 @@
+site_name: DAC MYGA Intro
+site_url: https://DonovanHou2023.github.io/dac-myga-intro
+docs_dir: lessons
+site_dir: mkdocs_site
+nav:
+  - Home: index.md
+  - Lessons:
+      - Lesson 1: 01-foundations-review/objectives.md
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: 'blue'
+    accent: 'orange'
+  font:
+    text: 'Inter, Roboto, Arial, sans-serif'
+  features:
+    - navigation.expand
+    - navigation.sections
+    - navigation.instant
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+plugins:
+  - search

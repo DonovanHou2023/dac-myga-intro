@@ -1,8 +1,23 @@
 # Node and build artifacts
 node_modules/
 /site/node_modules/
-/site/dist/
-/dist/
+
+# If you previously had a `site/` React/Vite app, ignore its artifacts
+site/
+
+# Venvs and Python artifacts
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Build/dist
+build/
+dist/
 
 # Vite / cache
 .vite/
@@ -28,3 +43,6 @@ yarn-error.log*
 
 # Coverage
 /coverage/
+
+# JetBrains
+.idea/

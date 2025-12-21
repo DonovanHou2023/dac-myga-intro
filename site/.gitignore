@@ -1,7 +1,0 @@
-# Ignore node modules and build output for the site
-node_modules/
-dist/
-.vite/
-
-# local env
-.env

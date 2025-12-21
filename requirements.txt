@@ -1,0 +1,7 @@
+mkdocs>=1.4
+mkdocs-material>=9.0
+pymdown-extensions>=9.0
+
+# Optional additional plugins you may add later:
+# - mkdocs-minify-plugin
+# - mkdocs-git-revision-date-localized-plugin

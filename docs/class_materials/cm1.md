@@ -1,4 +1,4 @@
-# Lesson 1 — Actuarial Foundations Review
+# Class 1 — Actuarial Foundations Review
 
 This lesson reviews key actuarial concepts that will be used throughout the
 course. The goal is to establish a common language and notation for probability,
@@ -17,6 +17,7 @@ in later lessons.
 A random variable represents a numerical outcome of an uncertain future event.
 
 In actuarial contexts, random variables are often used to represent:
+
 - the timing of an event
 - whether an event occurs within a period
 - the value of a payment contingent on an event
@@ -33,15 +34,16 @@ In actuarial contexts, random variables are often used to represent:
 
 Indicator variables are commonly used to model whether an event occurs.
 
-\[
+$$
 I =
 \begin{cases}
 1 & \text{if the event occurs} \\
 0 & \text{if the event does not occur}
 \end{cases}
-\]
+$$
 
 Indicator variables are useful for:
+
 - modeling survival or termination
 - defining contingent payments
 - simplifying expected value calculations
@@ -52,11 +54,12 @@ Indicator variables are useful for:
 
 Expectation is the primary probabilistic operator used in actuarial work.
 
-\[
-E[X] = \sum x \cdot P(X = x)
-\]
+$$
+E[X] = \sum_x x \, P(X = x)
+$$
 
 Key points:
+
 - expectation represents an average over all possible outcomes
 - many actuarial quantities are expressed as expected values
 - higher moments (variance, skewness) are not emphasized in this course
@@ -71,14 +74,15 @@ Standard actuarial notation is assumed.
 
 | Symbol | Meaning |
 |----|--------|
-| \( q_x \) | Probability of death between ages \( x \) and \( x+1 \) |
-| \( p_x \) | Probability of survival between ages \( x \) and \( x+1 \) |
-| \( {}_tp_x \) | Probability of survival for \( t \) years |
+| $q_x$ | Probability of death between ages $x$ and $x+1$ |
+| $p_x$ | Probability of survival between ages $x$ and $x+1$ |
+| ${}_t p_x$ | Probability of survival for $t$ years |
 
-Relationship:
-\[
+Relationship between one-year survival and death probabilities:
+
+$$
 p_x = 1 - q_x
-\]
+$$
 
 ---
 
@@ -86,9 +90,9 @@ p_x = 1 - q_x
 
 Survival probabilities over multiple periods are defined as:
 
-\[
-{}_tp_x = \prod_{k=0}^{t-1} (1 - q_{x+k})
-\]
+$$
+{}_t p_x = \prod_{k=0}^{t-1} \left( 1 - q_{x+k} \right)
+$$
 
 These probabilities form the basis for valuing payments that depend on survival
 or death.
@@ -101,6 +105,7 @@ Life contingencies provide a framework for analyzing payments that depend on
 human life events.
 
 Life contingencies are used to:
+
 - value benefits contingent on survival or death
 - compare different payment structures
 - support actuarial valuation and reserving
@@ -122,6 +127,7 @@ Common decrements include:
 | Maturity | Termination at a specified time |
 
 General assumptions:
+
 - decrements are mutually exclusive within a period
 - timing conventions must be defined
 - assumptions must be applied consistently
@@ -137,78 +143,98 @@ are not directly comparable.
 
 The discount factor is defined as:
 
-\[
+$$
 v = \frac{1}{1 + i}
-\]
+$$
 
-where:
-- \( i \) is the annual effective interest rate
+where $i$ is the annual effective interest rate.
 
 ---
 
 ### Present Value
 
-Present value converts future payments into an equivalent value at time 0.
+Present value converts future payments into an equivalent value at time $0$.
 
-For a sequence of cash flows \( C_t \):
+For a sequence of cash flows $C_t$:
 
-\[
-PV = \sum_{t=1}^{n} C_t \cdot v^t
-\]
+$$
+PV = \sum_{t=1}^{n} C_t v^t
+$$
 
 Unless otherwise stated:
+
 - time is measured in discrete periods
 - payments occur at the end of each period
 - interest rates are deterministic
 
 ---
 
-### Example: Present Value Calculation
+## 5. Life Insurance
 
-```python
-def present_value(cashflows, discount_rate):
-    """
-    cashflows: list of cash flows by period
-    discount_rate: annual effective interest rate
-    """
-    return sum(
-        cf / (1 + discount_rate) ** t
-        for t, cf in enumerate(cashflows, start=1)
-    )
+Life insurance contracts provide payments contingent on **death**.
 
-print(present_value([100, 100, 100], 0.05))
+### Cash Flow Timing (Conceptual)
+
+- premiums are paid while the insured is alive
+- a benefit is paid upon death
+- the timing of the benefit payment is uncertain
+- valuation emphasizes death probabilities and discounting
+
+### Basic Cash Flow Structure
+
+```
+Time:     0     1     2     3     4     5
+          |-----|-----|-----|-----|-----|
+Premiums: P     P     P              
+Death:                   X
+Benefit:                   |B|
 ```
 
-This example illustrates the standard discounting convention used throughout the course.
+---
 
-## 5. Life Insurance vs Annuity Contracts (High-Level Comparison)
+## 6. Annuities
 
-Before moving on, it is helpful to conceptually distinguish between life
-insurance and annuity contracts. This comparison is intended to provide
-high-level context only; detailed product mechanics are not covered in this
-lesson.
+Annuity contracts provide payments contingent on **survival**.
+
+### Cash Flow Timing (Conceptual)
+
+- payments are made while the annuitant is alive
+- payments stop at death
+- the duration of payments is uncertain
+- valuation emphasizes survival probabilities and discounting
+
+### Basic Cash Flow Structure
+
+```
+Time:     0     1     2     3     4     5
+          |-----|-----|-----|-----|-----|
+Premiums: P
+Death:                         X
+Payments:      |A|   |A|   |A|   |A|
+```
+
+---
+
+## 7. Life Insurance vs Annuities
 
 | Aspect | Life Insurance | Annuity |
 |------|----------------|---------|
 | Primary risk addressed | Mortality (death) | Longevity (survival) |
-| Typical triggering event | Death of the insured | Survival of the annuitant |
-| Cash flow orientation | Protection-oriented | Income or accumulation-oriented |
-| Benefit timing | Generally uncertain | Often contingent on survival |
+| Cash flow trigger | Death | Survival |
+| Benefit timing | Upon death | While alive |
+| Payment uncertainty | Timing of payment | Duration of payments |
 | Actuarial emphasis | Death probabilities | Survival probabilities |
-
-This distinction will be useful background for later lessons when annuity
-products are discussed in greater detail.
 
 ---
 
-## 6. Key Takeaways
+## 8. Key Takeaways
 
 After this session, you should be comfortable with:
 
-- Basic probability concepts and expectation
-- Actuarial mortality and survival notation
-- Core life contingency ideas
-- Present value and discounting concepts
-- High-level differences between life insurance and annuity contracts
+1. Basic probability concepts and expectation
+2. Actuarial mortality and survival notation
+3. Core life contingency ideas
+4. Time value of money and present value
+5. Timing of cash flows for life insurance and annuity contracts
 
 These foundational concepts will be referenced throughout the remainder of the course.

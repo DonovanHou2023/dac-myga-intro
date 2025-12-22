@@ -4,10 +4,15 @@ docs_dir: docs
 site_dir: mkdocs_site
 nav:
   - Home: index.md
-  - Lessons:
-      - Lesson 1: lessons/lecture1.md
+  - Classes:
+      - Class 1: class_materials/cm1.md
+  - Homework:
+      - Homework 1: homeworks/hw1.md
 theme:
   name: material
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
   palette:
     scheme: default
     primary: '#0B3D91'    # deep blue primary

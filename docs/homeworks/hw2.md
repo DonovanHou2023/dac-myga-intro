@@ -164,7 +164,7 @@ Answer:
 
 ---
 
-# Problem 7 — Python Project: MYGA Illustration Engine (Core Build)
+## Problem 7 — Python Project: MYGA Illustration Engine (Core Build)
 
 You will build a **beginner-friendly** MYGA illustration engine that produces a
 **monthly projection** for 10 years (120 months).

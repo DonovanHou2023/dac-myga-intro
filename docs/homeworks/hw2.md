@@ -1,6 +1,7 @@
 # Homework 2 — Annuities, MYGA Features, and Python Illustration Framework
 
 This assignment reinforces key ideas from **Class 2**:
+
 - Deferred vs. immediate annuities (phases + risks)
 - Product taxonomy (MYGA / FIA / RILA / VA)
 - Interest crediting mechanics
@@ -9,6 +10,7 @@ This assignment reinforces key ideas from **Class 2**:
 - MYGA cash flow mechanics and cash surrender value logic
 
 Unless otherwise stated:
+
 - Time is measured in **policy months**
 - Interest crediting is applied **monthly**
 - Withdrawals (if any) occur at the **beginning of the policy year** (BOP of month 1, 13, 25, ...)
@@ -39,6 +41,7 @@ Fill out the table below.
 | VA |  |  |  |
 
 Then answer:
+
 1. Which products are most “bond-like” in behavior?
 2. Which product is most similar to a mutual fund wrapper?
 
@@ -55,6 +58,7 @@ Explain “triple compounding” using:
 Then compute:
 
 Assume:
+
 - Initial premium: \$10,000
 - Annual credited rate: 5%
 - Horizon: 3 years
@@ -74,11 +78,13 @@ even if the credited rate is the same as a taxable account.
 ### Part A — MYGA
 
 Assume:
+
 - Premium: \$100,000
 - MYGA credited rate: 4.2% annually
 - One-year accumulation
 
 Compute:
+
 $$
 AV_1 = 100{,}000 \times (1.042)
 $$
@@ -86,6 +92,7 @@ $$
 ### Part B — FIA (Cap)
 
 Assume:
+
 - Premium: \$100,000
 - Index return: 7%
 - Cap: 5%
@@ -97,6 +104,7 @@ Assume:
 ### Part C — RILA (Buffer)
 
 Assume:
+
 - Premium: \$100,000
 - Index return: –12%
 - Buffer: 10%
@@ -115,6 +123,7 @@ A MYGA includes a Minimum Guaranteed Surrender Value (MGSV) based on:
 - Reduced by withdrawals
 
 Assume:
+
 - Single premium $P = 100{,}000$
 - Minimum guaranteed rate $i_{min} = 1\%$ annually
 - No withdrawals
@@ -126,6 +135,7 @@ MGSV_5 = 0.875 \times 100{,}000 \times (1.01)^5
 $$
 
 Then answer:
+
 1. Why is MGSV important in statutory contexts?
 2. How does MGSV relate to a “floor” on surrender values?
 
@@ -172,11 +182,13 @@ You will build a **beginner-friendly** MYGA illustration engine that produces a
 ### 7.1 What You’re Building
 
 A function or class that:
+
 - accepts MYGA inputs (rates, schedules, withdrawal %)
 - projects month-by-month account values
 - produces a clean table of outputs (DataFrame)
 
 You should be able to:
+
 - change inputs (duration, withdrawal %, etc.)
 - rerun projection instantly
 - inspect the output columns for auditability
@@ -241,6 +253,7 @@ $$
 $$
 
 For HW2:
+
 - withdrawal input is a **fixed annual percentage** between **0% and 10%**
 - assume it will **not exceed** the free limit (so **no penalties** in HW2)
 
@@ -251,6 +264,7 @@ W_{y,\text{BOP}} = AV_{\text{(start of policy year } y)} \times w_{annual}
 $$
 
 **Order of operations at the start of the policy year:**
+
 1. Start with $AV^{BOP}$
 2. Subtract withdrawal $W_{y,\text{BOP}}$
 3. Then proceed with monthly interest crediting

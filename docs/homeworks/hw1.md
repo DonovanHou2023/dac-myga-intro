@@ -4,6 +4,7 @@ This assignment reinforces the foundational concepts introduced in **Class 1**.
 Show all formulas used. Numerical answers should be clearly labeled.
 
 Unless otherwise stated:
+
 - Time is measured in discrete annual periods
 - Payments occur at the end of each period
 - Interest rates are annual effective rates
@@ -117,6 +118,7 @@ Consider a life annuity-immediate that pays $A$ at the end of the year
 if the annuitant survives the year.
 
 Assume:
+
 - $p_x = 0.98$
 - $i = 5\%$
 
@@ -141,15 +143,18 @@ Write a Python function that computes the present value of a sequence of cash
 flows given a constant annual effective interest rate.
 
 Your function should:
+
 - Take a list of cash flows
 - Take a discount rate as input
 - Return the present value
 
 Test your function using:
+
 - Cash flows: `[100, 100, 100]`
 - Discount rate: `0.05`
 
 Include:
+
 - The Python code
 - The numerical output
 

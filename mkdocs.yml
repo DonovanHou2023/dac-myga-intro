@@ -8,10 +8,14 @@ nav:
       - Class 1: class_materials/cm1.md
       - Class 2: class_materials/cm2.md
       - Class 3: class_materials/cm3.md
+      - Class 4: class_materials/cm4.md
+      - Class 5: class_materials/cm5.md
   - Homework:
       - Homework 1: homeworks/hw1.md
       - Homework 2: homeworks/hw2.md
       - Homework 3: homeworks/hw3.md
+      - Homework 4: homeworks/hw4.md
+      - Homework 5: homeworks/hw5.md
 theme:
   name: material
   features:
@@ -25,7 +29,11 @@ theme:
 markdown_extensions:
   - admonition
   - codehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.arithmatex:
       generic: true
   - toc:

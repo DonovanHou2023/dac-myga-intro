@@ -1,0 +1,45 @@
+schema_version: 1
+
+product_code: MYGA5
+term_years: 5
+
+features:
+  minimum_guaranteed_rate: 0.01
+
+  mva:
+    enabled: false
+    benchmark_index:
+      type: treasury_constant_maturity
+      code: UST_CMT_5Y
+      description: "US Treasury Constant Maturity 5-Year"
+
+  surrender_charge:
+    schedule:
+      1: 0.09
+      2: 0.08
+      3: 0.07
+      4: 0.06
+      5: 0.05
+    after_term:
+      default_charge_pct: 0.00
+      description: "Surrender charge is 0% for policy year > term_years."
+
+  free_partial_withdrawal:
+    enabled: true
+
+    # Choose ONE method. The engine will calculate based on this.
+    # Options:
+    # - prior_year_interest_credited
+    # - pct_of_boy_account_value
+    method: pct_of_boy_account_value
+
+    params:
+      pct: 0.10
+
+    description: "Free withdrawal provision (single-method flag used by the model)."
+
+assumptions:
+  mortality_table_key: null
+  lapse_model_key: null
+  withdrawal_behavior_key: null
+  expense_assumption_key: null

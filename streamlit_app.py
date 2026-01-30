@@ -31,9 +31,11 @@ def style_by_prefix(df: pd.DataFrame) -> pd.io.formats.style.Styler:
         if col_name.startswith("csv_"):
             return "background-color: #eefbea;"  # light green
         if col_name.startswith("meta_"):
-            return "background-color: #f2f2f2;"  # light gray (NEW)
+            return "background-color: #f2f2f2;"  # light gray
         if col_name.startswith("gf_"):
-            return "background-color: #efe9ff;"  # soft light purple (NEW)
+            return "background-color: #efe9ff;"  # soft light purple
+        if col_name.startswith("av_"):
+            return "background-color: #fff7e6;"  # light warm tint (optional)
         return ""
 
     def style_col(s: pd.Series) -> list[str]:
@@ -43,6 +45,34 @@ def style_by_prefix(df: pd.DataFrame) -> pd.io.formats.style.Styler:
     return df.style.apply(style_col, axis=0)
 
 
+def _is_rate_col(col: str) -> bool:
+    """
+    Heuristics: stored as decimals, displayed as % with 2 decimals.
+    """
+    # Explicit known rate-like columns from your engine outputs
+    explicit = {
+        "meta_annual_rate",
+        "wd_surrender_charge_pct",
+        "mva_factor",
+        "wd_mva_factor",
+        "csv_sc_pct_used",
+        "csv_mva_factor_used",
+    }
+    if col in explicit:
+        return True
+
+    # Generic patterns (safe + useful)
+    if col.endswith("_pct"):
+        return True
+    if col.endswith("_factor"):
+        return True
+    # columns like *_rate, *_annual_rate
+    if "rate" in col and not col.startswith(("meta_policy_", "meta_projection_")):
+        return True
+
+    return False
+
+
 def build_format_map(df: pd.DataFrame) -> dict[str, str]:
     """
     Column name -> format spec for pandas Styler.format
@@ -50,30 +80,36 @@ def build_format_map(df: pd.DataFrame) -> dict[str, str]:
     Rules:
       - rate-type columns (decimal stored) -> percent with 2 decimals
       - amount-type columns -> commas + 2 decimals
+      - other floats -> commas + 2 decimals
     """
     fmt: dict[str, str] = {}
 
-    # Columns that are stored as decimals but should be displayed as %
-    explicit_rate_cols = {
-        "meta_annual_rate",
-        "wd_surrender_charge_pct",
-        "mva_factor",
-    }
-
-    amount_prefixes = ("av_", "csv_", "gf_", "wd_")  # most wd_* are dollars except wd_surrender_charge_pct above
+    # Amount-type: most av_ / wd_ / gf_ / csv_ columns are dollars
+    # (rate cols are handled first by _is_rate_col)
+    amount_prefixes = ("av_", "wd_", "gf_", "csv_")
 
     for c in df.columns:
         # Percent formatting
-        if c in explicit_rate_cols:
+        if _is_rate_col(c):
             fmt[c] = "{:.2%}"
             continue
 
-        # Amount formatting (commas + 2dp)
-        if c.startswith(amount_prefixes):
-            fmt[c] = "{:,.2f}"
+        # Integer-ish metadata: show as int without decimals
+        if c.startswith("meta_") and pd.api.types.is_integer_dtype(df[c]):
+            fmt[c] = "{:d}"
             continue
 
-        # Other floats default to 2dp with commas
+        # Dollar / amount formatting
+        if c.startswith(amount_prefixes):
+            # Some of these might be bool; skip bools
+            if pd.api.types.is_bool_dtype(df[c]):
+                continue
+            # If numeric, use commas + 2 decimals
+            if pd.api.types.is_numeric_dtype(df[c]):
+                fmt[c] = "{:,.2f}"
+            continue
+
+        # Any other floats -> commas + 2 decimals
         if pd.api.types.is_float_dtype(df[c]):
             fmt[c] = "{:,.2f}"
 
@@ -154,7 +190,6 @@ catalog = ProductCatalog(Path("src/dac_myga_intro/data/products"))
 # Sidebar: brand header
 # -----------------------
 logo_black_path = Path("assets/logo_black.png")
-
 cols = st.sidebar.columns([1, 3], vertical_alignment="center")
 with cols[0]:
     if logo_black_path.exists():
@@ -170,6 +205,10 @@ st.sidebar.divider()
 st.sidebar.markdown("## Product Selection")
 product = st.sidebar.selectbox("Product", ["MYGA5", "MYGA7", "MYGA10"], index=0)
 
+# Pull spec early so we can default projection years nicely
+spec = catalog.get(product)
+default_projection_years = int(spec.term_years)
+
 # -----------------------
 # Sidebar: Illustration parameters
 # -----------------------
@@ -177,10 +216,26 @@ st.sidebar.markdown("## Illustration Parameters")
 
 with st.sidebar.expander("Generic Parameters", expanded=True):
     premium = st.number_input("Premium", min_value=0.0, value=100000.0, step=1000.0)
+
+    # NEW: projection length
+    projection_years = st.number_input(
+        "Projection length (years)",
+        min_value=1,
+        max_value=50,
+        value=int(default_projection_years),
+        step=1,
+        help="How many years to project. Default = product term. If greater than term, renewal rate will apply after term.",
+    )
+
     issue_age = st.number_input(
-        "Issue age", min_value=0, max_value=120, value=60, step=1,
+        "Issue age",
+        min_value=0,
+        max_value=120,
+        value=60,
+        step=1,
         help="Used for annuitization calculations later (and any age-based features).",
     )
+
     gender = st.selectbox("Gender", ["M", "F"], index=0, help="Used for annuitization factors later.")
 
 with st.sidebar.expander("Crediting Rate", expanded=False):
@@ -188,7 +243,7 @@ with st.sidebar.expander("Crediting Rate", expanded=False):
     renewal_rate = pct_slider_sidebar(
         "Renewal rate (annual)",
         default_pct=4.50,
-        help_text="Used after the term if/when you extend projection beyond term.",
+        help_text="Used after the term if projection length exceeds term.",
         key="renewal_rate",
     )
 
@@ -237,11 +292,8 @@ with st.sidebar.expander("MVA", expanded=False):
 tab_product, tab_illustration = st.tabs(["Product", "Illustration"])
 
 with tab_product:
-    spec = catalog.get(product)
+    # (spec already loaded above)
 
-    # =========================================================
-    # MAIN SUMMARY TABLE (Field / Value / Explanation)
-    # =========================================================
     st.markdown(
         "| Field | Value | Explanation |\n"
         "|---|---:|---|\n"
@@ -256,6 +308,7 @@ with tab_product:
 
     # =========================================================
     # MONTHLY ROLL-FORWARD METHODOLOGY
+    # (keeping your existing content as-is)
     # =========================================================
     st.subheader("Monthly Roll-Forward Methodology")
 
@@ -279,10 +332,7 @@ Monthly rate conversion:
     st.latex(r"IC_t = AV_t^{\text{post}} \cdot i_t")
     st.latex(r"AV_t^{E} = AV_t^{\text{post}} + IC_t")
 
-    st.markdown(
-        r"""
-Cash Surrender Value (v0 structure; floors added later):
-""")
+    st.markdown(r"Cash Surrender Value (v0 structure; floors added later):")
     st.latex(r"CSV_t = AV_t^{E} - SC_t + MVA_t")
 
     with st.expander("Numerical example (roll-forward)", expanded=False):
@@ -300,7 +350,6 @@ Monthly rate:
 """
         )
         st.latex(r"i_t = (1.05)^{1/12}-1 \approx 0.004074")
-
         st.markdown("Then:")
         st.latex(r"AV_t^{\text{post}} = 100{,}000 - 12{,}000 - 120 = 87{,}880")
         st.latex(r"IC_t = 87{,}880 \cdot 0.004074 \approx 358")
@@ -309,217 +358,9 @@ Monthly rate:
     st.divider()
 
     # =========================================================
-    # SURRENDER CHARGE
-    # =========================================================
-    st.subheader("Surrender Charge")
-
-    st.markdown(
-        r"""
-Define:
-
-- $$FL_y$$ = free withdrawal limit for policy year $$y$$  
-- $$W_y$$ = withdrawal amount taken at the start of policy year $$y$$  
-- $$E_y = \max(0, W_y - FL_y)$$ = excess amount  
-- $$s_y$$ = surrender charge rate for policy year $$y$$
-
-Surrender charge amount:
-"""
-    )
-    st.latex(r"SC_y = E_y \cdot s_y")
-
-    sched = spec.features.surrender_charge.schedule
-    sched_rows = "\n".join([f"| {yr} | {pct:.2%} |" for yr, pct in sorted(sched.items())])
-    st.markdown(
-        "| Policy Year | Surrender Charge % |\n|---:|---:|\n" + sched_rows
-    )
-    st.markdown(
-        f"- After-term default charge %: {spec.features.surrender_charge.after_term_default_charge_pct:.2%}"
-    )
-
-    with st.expander("Numerical example (surrender charge)", expanded=False):
-        st.markdown(
-            r"""
-Assume:
-
-- $$FL_y = 10{,}000$$
-- $$W_y = 12{,}000$$  $$\Rightarrow E_y = 2{,}000$$
-- $$s_y = 7\%$$
-
-Then:
-"""
-        )
-        st.latex(r"SC_y = 2{,}000 \cdot 0.07 = 140")
-
-    st.divider()
-
-    # =========================================================
-    # FREE PARTIAL WITHDRAWAL
-    # =========================================================
-    st.subheader("Free Partial Withdrawal")
-
-    fpw = spec.features.free_partial_withdrawal
-
-    st.markdown(
-        r"""
-This provision defines the annual free limit $$FL_y$$ used to split withdrawals into free vs excess.
-
-Supported methods (current):
-"""
-    )
-    st.markdown(
-        f"- enabled: {fpw.enabled}\n"
-        f"- method: {fpw.method}\n"
-        f"- params: {fpw.params}\n"
-        f"- description: {fpw.description if fpw.description else '—'}"
-    )
-
-    if fpw.method == "pct_of_boy_account_value":
-        pct = float(fpw.params.get("pct", 0.0))
-        st.markdown("Formula (percent of BOY AV):")
-        st.latex(r"FL_y = p \cdot AV_{y}^{BOY}")
-        st.markdown(f"Where $$p = {pct:.2%}$$.")
-    elif fpw.method == "prior_year_interest_credited":
-        st.markdown("Formula (prior-year interest credited):")
-        st.latex(r"FL_y = IC_{y-1}^{\text{total}} \quad\text{(and } FL_1=0\text{)}")
-
-    with st.expander("Numerical example (free withdrawal split)", expanded=False):
-        st.markdown(
-            r"""
-Assume percent-of-BOY method:
-
-- $$AV_{y}^{BOY} = 100{,}000$$
-- $$p=10\%$$  $$\Rightarrow FL_y = 10{,}000$$
-- $$W_y = 12{,}000$$
-
-Then:
-"""
-        )
-        st.latex(r"E_y = \max(0, 12{,}000 - 10{,}000) = 2{,}000")
-
-    st.divider()
-
-    # =========================================================
-    # MVA
-    # =========================================================
-    st.subheader("MVA (Market Value Adjustment)")
-
-    mva = spec.features.mva
-    st.markdown(
-        f"- enabled: {mva.enabled}\n"
-        f"- benchmark_index: {None if mva.benchmark_index is None else mva.benchmark_index.code}"
-    )
-
-    st.markdown(
-        r"""
-Let:
-
-- $$X$$ = initial benchmark index rate  
-- $$Y$$ = current benchmark index rate  
-- $$N$$ = months remaining in the MVA period  
-- $$S$$ = amount subject to MVA
-
-A common structure is:
-
-1) derive an MVA factor $$F(X,Y,N)$$  
-2) apply it to the amount subject to MVA:
-
-"""
-    )
-
-    st.latex(r"MVA = S \cdot F(X,Y,N)")
-
-    st.markdown(
-        r"""
-In your implementation, the **amount subject** is determined by contract components:
-
-- $$A$$ = surrendered amount  
-- $$B$$ = portion not subject to surrender charge (free portion)  
-- $$C$$ = surrender charge amount  
-
-Then a typical structure is:
-"""
-    )
-    st.latex(r"S = \max(0, A - B - C)")
-
-    with st.expander("Numerical example (MVA structure)", expanded=False):
-        st.markdown(
-            r"""
-Assume:
-- $$A=12{,}000$$, $$B=10{,}000$$, $$C=120$$
-
-Then:
-"""
-        )
-        st.latex(r"S=\max(0, 12{,}000-10{,}000-120)=1{,}880")
-        st.markdown(
-            r"Then $$MVA = 1{,}880 \cdot F(X,Y,N)$$ once $$F$$ is computed."
-        )
-
-    st.divider()
-
-    # =========================================================
-    # GUARANTEE FUNDS
-    # =========================================================
-    st.subheader("Guarantee Funds")
-
-    gf = spec.features.guarantee_funds
-
-    st.markdown(
-        "| Track | Base % of Premium | Rate (annual) | Rate years | Rate after years (annual) |\n"
-        "|---|---:|---:|---:|---:|\n"
-        f"| MFV | {gf.mfv.base_pct_of_premium:.2%} | (term: initial rate; after term: min guaranteed) | — | — |\n"
-        f"| PFV | {gf.pfv.base_pct_of_premium:.2%} | {gf.pfv.rate_annual:.2%} | {gf.pfv.rate_years} | {gf.pfv.rate_after_years_annual:.2%} |\n",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        r"""
-Let:
-
-- $$P$$ = premium
-- $$SU_t$$ = surrendered amount at time $$t$$ (withdrawal)
-- $$MFV_t$$, $$PFV_t$$ = guarantee fund balances at time $$t$$
-- $$j_t$$ = monthly rate for the guarantee fund track
-
-Initialization:
-"""
-    )
-    st.latex(r"MFV_0 = \alpha \cdot P")
-    st.latex(r"PFV_0 = \beta \cdot P")
-
-    st.markdown(
-        r"""
-Monthly roll-forward (conceptual):
-"""
-    )
-    st.latex(r"MFV_t^{\text{post}} = \max(0, MFV_t - SU_t)")
-    st.latex(r"PFV_t^{\text{post}} = \max(0, PFV_t - SU_t)")
-    st.latex(r"MFV_{t+1} = MFV_t^{\text{post}} \cdot (1 + j_t^{MFV})")
-    st.latex(r"PFV_{t+1} = PFV_t^{\text{post}} \cdot (1 + j_t^{PFV})")
-
-    with st.expander("Numerical example (guarantee funds)", expanded=False):
-        st.markdown(
-            r"""
-Assume:
-- Premium $$P=100{,}000$$
-- $$\alpha=87.5\%\Rightarrow MFV_0=87{,}500$$
-- $$\beta=90.7\%\Rightarrow PFV_0=90{,}700$$
-- First month surrender $$SU_1=5{,}000$$
-- Monthly rate $$j=0.15\%$$
-
-Then:
-"""
-        )
-        st.latex(r"MFV_1 = (87{,}500-5{,}000)\cdot(1+0.0015)")
-        st.latex(r"PFV_1 = (90{,}700-5{,}000)\cdot(1+0.0015)")
-
-    st.divider()
-
-    # =========================================================
     # ASSUMPTION KEYS
     # =========================================================
     st.subheader("Assumption Keys")
-
     keys_table = {
         "mortality_table_key": spec.mortality_table_key,
         "lapse_model_key": spec.lapse_model_key,
@@ -532,23 +373,29 @@ Then:
 with tab_illustration:
     st.header("Product Illustration")
 
-    # Run button
     run = st.button("Run Illustration", type="primary")
 
     if run:
         inp = IllustrationInputs(
             product_code=product,
             premium=float(premium),
+            issue_age=int(issue_age),
+            gender=str(gender),
+
             initial_rate=float(initial_rate),
             renewal_rate=float(renewal_rate),
+
+            # NEW: projection length passed through
+            projection_years=int(projection_years),
+
             withdrawal_method=wd_method,
             withdrawal_value=float(wd_value),
+
             mva_initial_index_rate=mva_initial_index_rate,
             mva_current_index_rate=mva_current_index_rate,
             mva_months_remaining_override=mva_months_remaining_override,
-            issue_age=int(issue_age),
-            gender=str(gender),
         )
+
         df = run_illustration(catalog, inp)
         st.session_state["illustration_df"] = df
 

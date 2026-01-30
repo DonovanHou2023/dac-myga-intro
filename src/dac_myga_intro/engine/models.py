@@ -37,12 +37,40 @@ class FreePartialWithdrawalFeature:
     description: str = ""
 
 
+# -----------------------
+# Guarantee fund specs (NEW)
+# -----------------------
+@dataclass(frozen=True)
+class MFVSpec:
+    base_pct_of_premium: float  # e.g. 0.875
+
+
+@dataclass(frozen=True)
+class PFVSpec:
+    base_pct_of_premium: float        # e.g. 0.907
+    rate_annual: float                # e.g. 0.0191
+    rate_years: int                   # e.g. 10
+    rate_after_years_annual: float    # e.g. 0.0
+
+
+@dataclass(frozen=True)
+class GuaranteeFundsSpec:
+    mfv: MFVSpec
+    pfv: PFVSpec
+
+
+# -----------------------
+# Product features
+# -----------------------
 @dataclass(frozen=True)
 class ProductFeatures:
     minimum_guaranteed_rate: float
     mva: MVAFeature
     surrender_charge: SurrenderChargeFeature
     free_partial_withdrawal: FreePartialWithdrawalFeature
+
+    # NEW: guarantee funds are product-driven features
+    guarantee_funds: GuaranteeFundsSpec
 
 
 @dataclass(frozen=True)

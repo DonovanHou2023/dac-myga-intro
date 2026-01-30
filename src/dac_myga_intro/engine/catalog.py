@@ -14,6 +14,9 @@ from .models import (
     ProductFeatures,
     ProductSpec,
     SurrenderChargeFeature,
+    MFVSpec,
+    PFVSpec,
+    GuaranteeFundsSpec,
 )
 
 
@@ -40,7 +43,6 @@ class ProductCatalog:
             raise ProductNotFoundError(f"Product '{code}' not found: {path}")
 
         raw = yaml.safe_load(path.read_text())
-
         spec = self._parse_spec(raw)
         self._cache[code] = spec
         return spec
@@ -65,7 +67,6 @@ class ProductCatalog:
         spec = self.get(product_code)
         sched = spec.features.surrender_charge.schedule
         if policy_year <= spec.term_years:
-            # If schedule is missing a year within term, that's a config error
             if policy_year not in sched:
                 raise ProductSpecValidationError(
                     f"{product_code}: surrender_charge.schedule missing policy year {policy_year}"
@@ -80,7 +81,7 @@ class ProductCatalog:
         return dict(self.get(product_code).features.free_partial_withdrawal.params)
 
     # -----------------------
-    # Internal parsing/validation
+    # Internal parsing / validation
     # -----------------------
     def _parse_spec(self, raw: dict) -> ProductSpec:
         try:
@@ -90,11 +91,13 @@ class ProductCatalog:
 
             f = raw["features"]
 
+            # -----------------------
             # MVA
+            # -----------------------
             mva_raw = f["mva"]
             mva_enabled = bool(mva_raw["enabled"])
             benchmark_index = None
-            if "benchmark_index" in mva_raw and mva_raw["benchmark_index"] is not None:
+            if mva_raw.get("benchmark_index"):
                 bi = mva_raw["benchmark_index"]
                 benchmark_index = BenchmarkIndex(
                     type=str(bi.get("type", "")),
@@ -102,18 +105,20 @@ class ProductCatalog:
                     description=str(bi.get("description", "")),
                 )
 
+            # -----------------------
             # Surrender charge
+            # -----------------------
             sc_raw = f["surrender_charge"]
             schedule = {int(k): float(v) for k, v in sc_raw["schedule"].items()}
             after_term_default = float(sc_raw["after_term"]["default_charge_pct"])
 
+            # -----------------------
             # Free partial withdrawal
+            # -----------------------
             fpw_raw = f["free_partial_withdrawal"]
             method = str(fpw_raw["method"])
-            params = fpw_raw.get("params", {}) or {}
-            params = {str(k): float(v) for k, v in params.items()}
+            params = {str(k): float(v) for k, v in (fpw_raw.get("params") or {}).items()}
 
-            # Minimal validation for method/params
             allowed = {"prior_year_interest_credited", "pct_of_boy_account_value"}
             if method not in allowed:
                 raise ProductSpecValidationError(
@@ -124,6 +129,60 @@ class ProductCatalog:
                     f"{product_code}: free_partial_withdrawal.params.pct is required when method == pct_of_boy_account_value"
                 )
 
+            free_partial_withdrawal = FreePartialWithdrawalFeature(
+                enabled=bool(fpw_raw.get("enabled", True)),
+                method=method,  # type: ignore
+                params=params,
+                description=str(fpw_raw.get("description", "")),
+            )
+
+            # -----------------------
+            # Guarantee funds (NEW)
+            # -----------------------
+            gf_raw = f.get("guarantee_funds")
+
+            default_mfv = {"base_pct_of_premium": 0.875}
+            default_pfv = {
+                "base_pct_of_premium": 0.907,
+                "rate_annual": 0.0191,
+                "rate_years": 10,
+                "rate_after_years_annual": 0.0,
+            }
+
+            if gf_raw is None:
+                gf_raw = {"mfv": default_mfv, "pfv": default_pfv}
+            else:
+                gf_raw = gf_raw or {}
+                gf_raw.setdefault("mfv", default_mfv)
+                gf_raw.setdefault("pfv", default_pfv)
+
+            mfv_raw = gf_raw["mfv"]
+            pfv_raw = gf_raw["pfv"]
+
+            guarantee_funds = GuaranteeFundsSpec(
+                mfv=MFVSpec(
+                    base_pct_of_premium=float(
+                        mfv_raw.get("base_pct_of_premium", default_mfv["base_pct_of_premium"])
+                    )
+                ),
+                pfv=PFVSpec(
+                    base_pct_of_premium=float(
+                        pfv_raw.get("base_pct_of_premium", default_pfv["base_pct_of_premium"])
+                    ),
+                    rate_annual=float(pfv_raw.get("rate_annual", default_pfv["rate_annual"])),
+                    rate_years=int(pfv_raw.get("rate_years", default_pfv["rate_years"])),
+                    rate_after_years_annual=float(
+                        pfv_raw.get(
+                            "rate_after_years_annual",
+                            default_pfv["rate_after_years_annual"],
+                        )
+                    ),
+                ),
+            )
+
+            # -----------------------
+            # Product features
+            # -----------------------
             features = ProductFeatures(
                 minimum_guaranteed_rate=float(f["minimum_guaranteed_rate"]),
                 mva=MVAFeature(enabled=mva_enabled, benchmark_index=benchmark_index),
@@ -131,16 +190,15 @@ class ProductCatalog:
                     schedule=schedule,
                     after_term_default_charge_pct=after_term_default,
                 ),
-                free_partial_withdrawal=FreePartialWithdrawalFeature(
-                    enabled=bool(fpw_raw.get("enabled", True)),
-                    method=method,  # type: ignore
-                    params=params,
-                    description=str(fpw_raw.get("description", "")),
-                ),
+                free_partial_withdrawal=free_partial_withdrawal,
+                guarantee_funds=guarantee_funds,
             )
 
-            # assumptions placeholders
+            # -----------------------
+            # Assumptions placeholders
+            # -----------------------
             a = raw.get("assumptions", {}) or {}
+
             return ProductSpec(
                 schema_version=schema_version,
                 product_code=product_code,

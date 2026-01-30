@@ -38,6 +38,18 @@ features:
 
     description: "Free withdrawal provision (single-method flag used by the model)."
 
+  minimum_guaranteed_rate: 0.01
+
+  guarantee_funds:
+    mfv:
+      base_pct_of_premium: 0.875
+    pfv:
+      base_pct_of_premium: 0.907
+      rate_annual: 0.0191
+      rate_years: 10
+      rate_after_years_annual: 0.0
+      description: "PFV rate guaranteed for 10 years at 1.91% annually."
+      
 assumptions:
   mortality_table_key: null
   lapse_model_key: null

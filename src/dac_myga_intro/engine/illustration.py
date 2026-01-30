@@ -1,207 +1,279 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal, Dict, Tuple
+from typing import Dict, Any
 
 import pandas as pd
 
 from dac_myga_intro.engine.catalog import ProductCatalog
+from dac_myga_intro.engine.inputs import IllustrationInputs
 
-
-WithdrawalMethod = Literal[
-    "pct_of_boy_av",
-    "fixed_amount",
-    "prior_year_interest_credited",
-]
-
-
-@dataclass(frozen=True)
-class IllustrationInputs:
-    product_code: str
-    premium: float
-    initial_rate: float          # annual, e.g. 0.05
-    renewal_rate: float          # annual, e.g. 0.045
-    withdrawal_method: WithdrawalMethod
-    withdrawal_value: float = 0.0  # pct (0.10) or fixed amount; ignored if prior_year_interest_credited
-
-
-def penalty_amount_stub(withdrawal_excess: float, surrender_charge_pct: float) -> float:
-    # TODO: implement later
-    return 0.0
-
-
-def monthly_rate_from_annual(r_annual: float) -> float:
-    return (1.0 + r_annual) ** (1.0 / 12.0) - 1.0
+# Component modules
+from dac_myga_intro.engine.withdrawals import (
+    WithdrawalState,
+    init_withdrawal_state,
+    calc_withdrawal_for_month,
+)
+from dac_myga_intro.engine.av import roll_forward_account_value
+from dac_myga_intro.engine.mva import MVAInputs, calculate_mva
+from dac_myga_intro.engine.guarantee_funds import (
+    MinimumFundValueParams,
+    ProspectiveFundValueParams,
+    GuaranteeFundState,
+    initialize_guarantee_funds,
+    apply_surrender_to_guarantee_funds,
+    credit_guarantee_funds_monthly,
+)
+from dac_myga_intro.engine.csv import calculate_cash_surrender_value
 
 
 def build_annual_rate_schedule(term_years: int, initial_rate: float, renewal_rate: float) -> Dict[int, float]:
-    # Year 1 uses initial rate; years 2..term use renewal rate
-    return {yr: (initial_rate if yr == 1 else renewal_rate) for yr in range(1, term_years + 1)}
-
-
-def compute_free_withdrawal_limit(
-    spec,
-    policy_year: int,
-    year_bop_av: float,
-    prior_policy_year_interest: float,
-) -> float:
     """
-    Uses the product feature free_partial_withdrawal config.
+    For v0, project only through the guaranteed term.
+
+    MYGA assumption:
+      - initial_rate applies through term_years (guaranteed period)
+      - renewal_rate becomes relevant only if you later extend projection beyond term
     """
-    fpw = spec.features.free_partial_withdrawal
-    if not fpw.enabled:
-        return 0.0
-
-    if fpw.method == "pct_of_boy_account_value":
-        pct = float(fpw.params.get("pct", 0.0))
-        return max(0.0, pct * year_bop_av)
-
-    if fpw.method == "prior_year_interest_credited":
-        # For policy year 1 there is no prior year
-        return max(0.0, prior_policy_year_interest if policy_year >= 2 else 0.0)
-
-    # If new methods are added later, handle them here
-    return 0.0
+    return {yr: float(initial_rate) for yr in range(1, term_years + 1)}
 
 
-def compute_withdrawal_amount(
-    inputs: IllustrationInputs,
-    policy_year: int,
-    year_bop_av: float,
-    prior_policy_year_interest: float,
-) -> float:
+def _round_output(df: pd.DataFrame, decimals: int = 2) -> pd.DataFrame:
     """
-    User-selected withdrawal instruction (single variable applied each year except year 1).
-    Withdrawal occurs only in month 1 of the policy year (handled in projection loop).
+    Round all float columns for presentation.
+    Keeps ints/strings unchanged.
     """
-    if policy_year == 1:
-        return 0.0
+    out = df.copy()
 
-    if inputs.withdrawal_method == "pct_of_boy_av":
-        return max(0.0, float(inputs.withdrawal_value) * year_bop_av)
+    float_cols = out.select_dtypes(include=["float"]).columns
+    if len(float_cols) > 0:
+        out[float_cols] = out[float_cols].round(decimals)
 
-    if inputs.withdrawal_method == "fixed_amount":
-        return max(0.0, float(inputs.withdrawal_value))
-
-    if inputs.withdrawal_method == "prior_year_interest_credited":
-        return max(0.0, prior_policy_year_interest)
-
-    return 0.0
+    return out
 
 
-def run_illustration(
-    catalog: ProductCatalog,
-    inputs: IllustrationInputs,
-) -> pd.DataFrame:
+def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.DataFrame:
     """
-    Returns a pandas DataFrame for Streamlit display.
+    Main orchestrator.
 
-    Columns include:
-    - policy_month (1..term_years*12)
-    - policy_year (1..term_years)
-    - month_in_policy_year (1..12)
-    - annual_rate, monthly_rate
-    - av_bop, withdrawal, free_limit, withdrawal_excess, penalty
-    - interest_credit, av_eop
+    Deterministic order each month:
+      (1) Snapshot BOP values
+      (2) Withdrawal + surrender charge
+      (3) MVA (optional, if enabled and input rates provided)
+      (4) Account Value roll-forward (withdrawal + surrender charge as penalty, then interest)
+      (5) Guarantee fund roll-forward (reduce by withdrawal, then credit monthly)
+      (6) CSV calculation (v0: AV - surrender charge + MVA; floors later)
+
+    Returns: monthly pandas DataFrame ready for Streamlit.
     """
+
     spec = catalog.get(inputs.product_code)
-    term_years = spec.term_years
+    term_years = int(spec.term_years)
     total_months = term_years * 12
 
+    # AV crediting schedule (during term)
     rate_by_year = build_annual_rate_schedule(term_years, inputs.initial_rate, inputs.renewal_rate)
 
-    # Track prior-year interest credited (needed for both free-withdrawal limit and user withdrawal method option)
+    # Prior-year interest credited tracking (used for free withdrawal method and withdrawal method)
     prior_year_interest = 0.0
     current_year_interest_accum = 0.0
 
-    rows = []
+    # Initialize AV at issue
+    av = float(inputs.premium)
 
-    av = float(inputs.premium)  # initial deposit at time 0 => AV at BOP month 1
+    # Initialize withdrawal state
+    wd_state: WithdrawalState = init_withdrawal_state()
+
+    # -----------------------
+    # Guarantee fund params come from PRODUCT FEATURES (YAML), not user inputs
+    # -----------------------
+    gf_spec = spec.features.guarantee_funds
+
+    mfv_params = MinimumFundValueParams(
+        base_pct_of_premium=float(gf_spec.mfv.base_pct_of_premium)
+    )
+    pfv_params = ProspectiveFundValueParams(
+        base_pct_of_premium=float(gf_spec.pfv.base_pct_of_premium),
+        rate_annual=float(gf_spec.pfv.rate_annual),
+        rate_years=int(gf_spec.pfv.rate_years),
+        rate_after_years_annual=float(gf_spec.pfv.rate_after_years_annual),
+    )
+
+    gf_state: GuaranteeFundState = initialize_guarantee_funds(
+        inputs.premium, mfv_params, pfv_params
+    )
+
+    rows: list[dict[str, Any]] = []
 
     for pm in range(1, total_months + 1):
         policy_year = (pm - 1) // 12 + 1
         month_in_year = (pm - 1) % 12 + 1
 
         annual_rate = float(rate_by_year[policy_year])
-        m_rate = monthly_rate_from_annual(annual_rate)
 
+        # -----------------------
+        # (1) BOP snapshots
+        # -----------------------
         av_bop = av
+        gf_mfv_bop = gf_state.mfv
+        gf_pfv_bop = gf_state.pfv
 
-        # Determine year BOP AV (used for % BOY withdrawal, free limits)
-        # This is AV at month 1 BOP of the current year.
-        # We can compute it on the fly: if month_in_year == 1, then av_bop is the year BOP.
-        year_bop_av = av_bop if month_in_year == 1 else None
+        # BOY AV is only meaningful at month 1; but withdrawals module can accept av_bop safely
+        year_bop_av = av_bop if month_in_year == 1 else av_bop
 
-        withdrawal = 0.0
-        free_limit = 0.0
-        withdrawal_excess = 0.0
-        surrender_charge_pct = 0.0
-        penalty = 0.0
+        # -----------------------
+        # (2) Withdrawals + surrender charge
+        # -----------------------
+        wd_state, wd_res = calc_withdrawal_for_month(
+            catalog=catalog,
+            inputs=inputs,
+            state=wd_state,
+            policy_year=policy_year,
+            month_in_policy_year=month_in_year,
+            av_bop=av_bop,
+            year_bop_av=year_bop_av,
+            prior_policy_year_interest=prior_year_interest,
+        )
 
-        # Withdrawal happens only at month 1 of each policy year except year 1
-        if month_in_year == 1 and policy_year >= 2:
-            # year_bop_av is av_bop in month 1
-            year_bop_av = av_bop
+        # -----------------------
+        # (3) MVA (optional)
+        # Contract notation:
+        #   A = amount surrendered (withdrawal)
+        #   B = amount not subject to surrender charge (free portion)
+        #   C = surrender charge amount ($)
+        # -----------------------
+        mva_factor = 0.0
+        mva_amount_subject = 0.0
+        mva_adjustment = 0.0
 
-            # product free-withdrawal limit
-            free_limit = compute_free_withdrawal_limit(
-                spec=spec,
-                policy_year=policy_year,
-                year_bop_av=year_bop_av,
-                prior_policy_year_interest=prior_year_interest,
+        mva_enabled = bool(spec.features.mva.enabled)
+        have_mva_rates = (
+            inputs.mva_initial_index_rate is not None
+            and inputs.mva_current_index_rate is not None
+        )
+
+        if mva_enabled and have_mva_rates and wd_res.excess_amount > 0.0:
+            # N: months remaining to end of MVA period
+            # v0 assumption: MVA period ends at term end
+            if inputs.mva_months_remaining_override is not None:
+                n_remaining = int(inputs.mva_months_remaining_override)
+            else:
+                n_remaining = max(0, total_months - pm + 1)
+
+            A = float(wd_res.withdrawal_amount)
+            B = float(wd_res.free_used_this_txn)
+            C = float(wd_res.surrender_charge_amount)
+
+            mva_out = calculate_mva(
+                MVAInputs(
+                    x_initial_index_rate=float(inputs.mva_initial_index_rate),
+                    y_current_index_rate=float(inputs.mva_current_index_rate),
+                    n_months_remaining=int(n_remaining),
+                ),
+                A=A,
+                B=B,
+                C=C,
+                # Hook for contract caps/floors later
+                fund_value_after_surrender_charge=None,
+                minimum_fund_value=None,
             )
 
-            # user withdrawal amount
-            withdrawal = compute_withdrawal_amount(
-                inputs=inputs,
-                policy_year=policy_year,
-                year_bop_av=year_bop_av,
-                prior_policy_year_interest=prior_year_interest,
-            )
+            mva_factor = float(mva_out.mva_factor)
+            mva_amount_subject = float(mva_out.amount_subject_to_mva)
+            mva_adjustment = float(mva_out.mva_adjustment_capped)
 
-            # Cap withdrawal at available account value (can adjust later if you allow overdraft behavior)
-            withdrawal = min(withdrawal, av_bop)
+        # -----------------------
+        # (4) Account Value roll-forward
+        # v0: treat surrender charge as "penalty" deducted from AV before interest credit
+        # -----------------------
+        av_result = roll_forward_account_value(
+            av_bop=av_bop,
+            withdrawal=float(wd_res.withdrawal_amount),
+            penalty=float(wd_res.surrender_charge_amount),
+            annual_rate=annual_rate,
+        )
+        av = float(av_result.av_eop)
 
-            # excess over free limit
-            withdrawal_excess = max(0.0, withdrawal - free_limit)
-
-            # Surrender charge percent for penalty logic (even though penalty is stubbed 0 now)
-            surrender_charge_pct = catalog.surrender_charge(inputs.product_code, policy_year)
-
-            penalty = penalty_amount_stub(withdrawal_excess, surrender_charge_pct)
-
-        # Apply withdrawal + penalty (penalty is 0 for now)
-        av_after_wd = av_bop - withdrawal - penalty
-
-        # Monthly interest crediting (post-withdrawal)
-        interest_credit = av_after_wd * m_rate
-        av_eop = av_after_wd + interest_credit
-
-        # Track interest by policy year for "prior_year_interest_credited"
-        current_year_interest_accum += interest_credit
+        # Track prior-year interest credited
+        current_year_interest_accum += float(av_result.interest_credit)
         if month_in_year == 12:
-            prior_year_interest = current_year_interest_accum
+            prior_year_interest = float(current_year_interest_accum)
             current_year_interest_accum = 0.0
+
+        # -----------------------
+        # (5) Guarantee fund roll-forward
+        # Reduce by withdrawal ONLY; then credit monthly per MFV/PFV rules
+        # -----------------------
+        gf_state = apply_surrender_to_guarantee_funds(gf_state, float(wd_res.withdrawal_amount))
+
+        gf_state = credit_guarantee_funds_monthly(
+            gf_state,
+            policy_year=policy_year,
+            term_years=term_years,
+            initial_rate=float(inputs.initial_rate),
+            min_guaranteed_rate=float(spec.features.minimum_guaranteed_rate),
+            pfv_params=pfv_params,
+        )
+
+        gf_mfv_eop = float(gf_state.mfv)
+        gf_pfv_eop = float(gf_state.pfv)
+
+        # -----------------------
+        # (6) CSV calculation
+        # v0: CSV = AV - surrender charge + MVA (floors optional later)
+        # -----------------------
+        csv_out = calculate_cash_surrender_value(
+            av=float(av_result.av_eop),
+            surrender_charge_amount=float(wd_res.surrender_charge_amount),
+            mva_amount=float(mva_adjustment),
+            gmv_floor=None,
+            nff_floor=None,
+        )
 
         rows.append(
             {
-                "policy_month": pm,
-                "policy_year": policy_year,
-                "month_in_policy_year": month_in_year,
-                "annual_rate": annual_rate,
-                "monthly_rate": m_rate,
-                "av_bop": av_bop,
-                "withdrawal": withdrawal,
-                "free_limit": free_limit,
-                "withdrawal_excess": withdrawal_excess,
-                "surrender_charge_pct": surrender_charge_pct,
-                "penalty": penalty,
-                "interest_credit": interest_credit,
-                "av_eop": av_eop,
+                # META
+                "meta_policy_month": pm,
+                "meta_policy_year": policy_year,
+                "meta_month_in_policy_year": month_in_year,
+                "meta_annual_rate": annual_rate,
+
+                # INPUT META (kept for later use; not used in v0 math)
+                "meta_issue_age": int(inputs.issue_age),
+                "meta_gender": str(inputs.gender),
+
+                # WITHDRAWALS
+                "wd_withdrawal_amount": float(wd_res.withdrawal_amount),
+                "wd_free_limit_ytd": float(wd_res.free_limit_ytd),
+                "wd_free_used_this_txn": float(wd_res.free_used_this_txn),
+                "wd_free_used_ytd_eop": float(wd_res.free_used_ytd_eop),
+                "wd_free_remaining_eop": float(wd_res.free_remaining_eop),
+                "wd_excess_amount": float(wd_res.excess_amount),
+                "wd_surrender_charge_pct": float(wd_res.surrender_charge_pct),
+                "wd_surrender_charge_amount": float(wd_res.surrender_charge_amount),
+
+                # MVA
+                "mva_enabled": bool(mva_enabled and have_mva_rates),
+                "mva_factor": float(mva_factor),
+                "mva_amount_subject": float(mva_amount_subject),
+                "mva_adjustment": float(mva_adjustment),
+
+                # ACCOUNT VALUE
+                "av_bop": float(av_bop),
+                "av_after_withdrawal_and_penalty": float(av_result.av_after_wd),
+                "av_interest_credit": float(av_result.interest_credit),
+                "av_eop": float(av_result.av_eop),
+
+                # GUARANTEE FUNDS
+                "gf_mfv_bop": float(gf_mfv_bop),
+                "gf_mfv_eop": float(gf_mfv_eop),
+                "gf_pfv_bop": float(gf_pfv_bop),
+                "gf_pfv_eop": float(gf_pfv_eop),
+
+                # CSV
+                "csv_before_floors": float(csv_out.csv_before_floors),
+                "csv": float(csv_out.csv),
             }
         )
 
-        av = av_eop
-
     df = pd.DataFrame(rows)
-    return df
+    return _round_output(df, decimals=2)

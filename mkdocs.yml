@@ -16,6 +16,9 @@ nav:
       - Homework 3: homeworks/hw3.md
       - Homework 4: homeworks/hw4.md
       - Homework 5: homeworks/hw5.md
+  - Projects:
+      - Project 1: projects/proj_1_illustration.md
+      - Project 2: projects/proj_2_carvm_calculation.md
 theme:
   name: material
   features:

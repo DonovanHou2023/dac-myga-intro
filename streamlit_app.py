@@ -8,6 +8,14 @@ import pandas as pd
 import streamlit as st
 import numpy_financial as npf 
 
+
+import sys
+# Make "src/" importable on Streamlit Community Cloud
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+if SRC.exists():
+    sys.path.insert(0, str(SRC))
+
 from dac_myga_intro.engine.catalog import ProductCatalog
 from dac_myga_intro.engine.inputs import IllustrationInputs
 from dac_myga_intro.engine.illustration import run_illustration

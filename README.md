@@ -1,110 +1,154 @@
-# DAK MYGA Intro
+# Donovan’s Actuarial Class — MYGA Foundation
 
-This repository contains the source materials for an 8-part actuarial course
-introducing the fundamentals of Multi-Year Guaranteed Annuity (MYGA) products.
+This repository contains the **course materials, homework assignments, and supporting tools**
+for *Donovan’s Actuarial Class: Multi-Year Guaranteed Annuity (MYGA) Foundation*.
 
-The course covers product structure, specifications, illustration mechanics,
-and introductory reserving concepts, with a focus on deterministic modeling
-and Python-based implementation.
+The project is designed as a **hands-on, practitioner-level introduction** to MYGA products,
+policy illustration mechanics, and statutory reserving frameworks, progressing from
+foundational concepts to modern valuation methodologies.
 
-## Purpose
+The materials are organized to support **self-study, guided instruction, and applied modeling**.
 
-This repository serves as the instructor-maintained source of truth for:
-- Course structure and content
-- Lesson materials and examples
-- Assignment templates and reference implementations
+---
 
-Students do not directly contribute to this repository.
+## Repository Contents
 
-## Student Access
+### 1. Class Materials
 
-Students access course materials through:
-- GitHub Pages (lecture content, examples, demos)
-- GitHub Classroom (assignments and auto-graded exercises)
+The `class_materials/` directory contains structured lecture notes written in Markdown
+and compiled into a documentation site using **MkDocs Material**.
 
-This repository itself is not used for student submissions.
+Each class builds on the previous one:
 
-## Repository Structure
+| Class | Topic |
+|---|---|
+| Class 1 | Actuarial foundations review (probability, life contingencies, financial math) |
+| Class 2 | Annuities and MYGA product fundamentals |
+| Class 3 | Fixed income basics, ALM, and Market Value Adjustment (MVA) |
+| Class 4 | CARVM reserving methodology and path-based valuation |
+| Class 5 | VM-22 framework: deterministic and stochastic reserves |
 
-- `lessons/`  
-  Instructor-authored lesson content and supporting materials.
+The emphasis is on **structure, intuition, and calculation flow**, not memorization.
 
-- `assignments/`  
-  Assignment templates and problem definitions used to generate
-  GitHub Classroom exercises.
+---
 
-- `projects/`  
-  Larger milestone-based modeling exercises.
+### 2. Homework Assignments
 
-- `docs/`  
-  Internal documentation and planning notes.
+The `homeworks/` directory contains assignments corresponding to each class.
 
-## Usage Notes
+Homework focuses on:
 
-- This repository is maintained privately by the instructor.
-- No open-source license is applied; all rights are reserved.
-- Python is the primary implementation language.
+- conceptual understanding of reserving frameworks
+- numerical reasoning
+- progressive Python modeling exercises
 
-## Status
+Key modeling themes include:
 
-This course is under active development.
+- MYGA policy illustration engines
+- partial withdrawal mechanics
+- annuitization option valuation
+- CARVM-style path testing and column reserves
+- VM-22 deterministic reserve logic
+- structural understanding of stochastic reserves and CTE
 
-## Site
+Each assignment builds toward a reusable modeling framework.
 
-The repository previously contained a React/Vite-based `site/` front-end; that has been removed. The project now uses MkDocs to build and publish the documentation site from `lessons/` (see the MkDocs section below).
+---
 
-## MkDocs site (new)
+### 3. Streamlit Applications
 
-This repository now includes a MkDocs-based site configuration. MkDocs will build static pages from the Markdown files under `lessons/` and publish them to GitHub Pages.
+This repository also includes **Streamlit applications** developed alongside the coursework.
 
-- Local preview:
-```bash
-python -m pip install -r requirements.txt
+These applications:
+
+- visualize MYGA policy illustrations
+- demonstrate reserve mechanics interactively
+- connect theoretical concepts to applied tools
+
+The Streamlit apps correspond directly to:
+
+- policy illustration engines
+- CARVM reserve logic
+- VM-22 deterministic reserve concepts
+
+They are intended as **educational and exploratory tools**, not production systems.
+
+---
+
+## Learning Objectives
+
+By completing the materials in this repository, a student should be able to:
+
+- understand MYGA product mechanics and benefit structures
+- build a policy illustration engine in Python
+- explain and implement CARVM reserving logic
+- understand the motivation and structure of VM-22
+- distinguish CARVM, VM-22, and cash flow testing
+- reason about asset–liability interactions
+- communicate valuation logic using diagrams and code
+
+This repository is **not exam-prep focused**.
+It reflects how actuaries reason about products and reserves in practice.
+
+---
+
+## Documentation Site
+
+The documentation site is built with:
+
+- MkDocs
+- MkDocs Material theme
+- MathJax for mathematical notation
+- Mermaid for flowcharts and structural diagrams
+
+Local development typically follows:
+
+```
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 mkdocs serve
 ```
 
-- Build locally:
-```bash
-mkdocs build -d mkdocs_site
-```
+The site is deployed using **GitHub Pages**.
 
-- The GitHub Actions workflow `.github/workflows/mkdocs-deploy.yml` builds the site and deploys the `mkdocs_site` folder to the `gh-pages` branch on push to `main`.
+---
 
-Automatic GitHub Pages deployment (recommended)
--------------------------------------------------
-This repo now contains a workflow that builds the MkDocs site and publishes it to GitHub Pages using the official Pages artifact flow.
+## Intended Audience
 
-- Workflow file: `.github/workflows/mkdocs-pages-deploy.yml`.
-- What it does:
-  - Installs Python and dependencies from `requirements.txt`.
-  - Runs `mkdocs build -d site` to generate the static site.
-  - Uploads the `site/` output as a Pages artifact and invokes the Pages deploy action.
+This repository is suitable for:
 
-How to trigger a publish
-- Push or merge to the `main` branch. The workflow runs automatically and publishes the site.
+- actuarial students transitioning from exams to applied work
+- early-career actuaries working with annuity products
+- analysts interested in insurance asset–liability modeling
+- practitioners seeking a structured refresher on CARVM and VM-22
 
-What to check in GitHub
-- Actions → check the `Build and publish MkDocs site` run for build and deploy steps and any errors.
-- Settings → Pages: After the first successful run, GitHub Pages will be configured to serve the published site (the workflow uses the Pages deploy action which integrates with the Pages settings).
+A basic familiarity with actuarial concepts and Python is helpful but not required.
 
-If you still prefer the older `gh-pages` branch approach (peaceiris/actions-gh-pages), tell me and I can switch workflows — but the Pages artifact flow is the recommended and supported method.
+---
 
-Using MkDocs Material theme
---------------------------------
-This repository is configured to use the `mkdocs-material` theme for a more polished site. To preview locally with the Material theme and syntax highlighting, run:
+## Disclaimer
 
-```bash
-python -m pip install -r requirements.txt
-mkdocs serve
+All materials in this repository are for **educational purposes only**.
 
-# then open http://127.0.0.1:8000
-```
+- Product structures are simplified
+- Assumptions are illustrative
+- Models are not production-ready
+- Regulatory interpretations are instructional, not legal guidance
 
-Notes:
-- If you want to customize the look further (fonts, primary/accent colors, logo), edit `mkdocs.yml` under the `theme:` section.
-- If you change `requirements.txt`, re-run the pip install command before serving or building.
+This repository does **not** represent the views, methods, or models of any insurer or employer.
 
-Notes about the existing React site:
-- The older React-based site remains in the `site/` folder. If you want to fully remove it, I can either delete it or move it to a backup folder (e.g., `site-react-backup`) — tell me which you prefer.
+---
 
+## Author
 
+**Donovan Hou, FSA, MAAA, MBA (Chicago Booth)**  
+Actuarial and analytics practitioner focused on annuity products,
+valuation frameworks, and actuarial modernization.
+
+---
+
+## License
+
+This project is licensed for educational use.
+See the `LICENSE` file for full terms.

@@ -17,8 +17,25 @@ nav:
       - Homework 4: homeworks/hw4.md
       - Homework 5: homeworks/hw5.md
   - Projects:
-      - Project 1: projects/proj_1_illustration.md
-      - Project 2: projects/proj_2_carvm_calculation.md
+      - Project A — MYGA Illustration Engine:
+        - Overview (Start Here): projects/proj_A_illustration.md
+        - Step 1A — Illustration Inputs:
+            projects/proj_A1a_illustration_input.md
+        - Step 1B — Product Specs & Catalog:
+            projects/proj_A1b_product_spec.md
+        - Step 2 — MVA Factor Calculation:
+            projects/proj_A2_mva_calculation.md
+        - Step 3 — Withdrawal Engine (Free vs Excess):
+            projects/proj_A3_withdrawals_calculation.md
+        - Step 4 — Guarantee Funds (MFV / PFV):
+            projects/proj_A4_guarantee_fund_calculation.md
+        - Step 5 — Account Value Roll-Forward:
+            projects/proj_A5_account_value_calculation.md
+        - Step 6 — Cash Surrender Value (CSV):
+            projects/proj_A6_cash_surrender_value_calculation.md
+        - Step 7 — Illustration Orchestration:
+            projects/proj_A7_illustration_calculation.md
+      - Project B: projects/proj_B_carvm_calculation.md
 theme:
   name: material
   features:

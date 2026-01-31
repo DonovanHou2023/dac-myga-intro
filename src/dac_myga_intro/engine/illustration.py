@@ -45,6 +45,7 @@ def build_annual_rate_schedule(
     projection_years: int,
     initial_rate: float,
     renewal_rate: float,
+    minimum_guaranteed_rate: float,
 ) -> Dict[int, float]:
     """
     Crediting schedule by policy year:
@@ -53,7 +54,7 @@ def build_annual_rate_schedule(
     """
     sched: Dict[int, float] = {}
     for yr in range(1, projection_years + 1):
-        sched[yr] = float(initial_rate) if yr <= term_years else float(renewal_rate)
+        sched[yr] = float(initial_rate) if yr <= term_years else max(float(renewal_rate), float(minimum_guaranteed_rate))
     return sched
 
 
@@ -100,6 +101,7 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
         projection_years=projection_years,
         initial_rate=float(inputs.initial_rate),
         renewal_rate=float(inputs.renewal_rate),
+        minimum_guaranteed_rate=float(spec.features.minimum_guaranteed_rate),
     )
 
     # Prior-year interest credited tracking (for withdrawal method / free rule option)
@@ -153,7 +155,7 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
             if inputs.mva_months_remaining_override is not None:
                 n_remaining = int(inputs.mva_months_remaining_override)
             else:
-                n_remaining = max(0, term_months - pm + 1)
+                n_remaining = max(0, term_months - pm)
 
             mva_factor = calculate_mva_factor(
                 MVAInputs(

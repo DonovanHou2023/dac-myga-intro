@@ -77,10 +77,14 @@ def compute_free_limit_for_year(
 def compute_user_withdrawal_amount(
     inputs: IllustrationInputs,
     policy_year: int,
+    month_in_policy_year: int,
     year_bop_av: float,
     prior_policy_year_interest: float,
 ) -> float:
     if policy_year <= 1:
+        return 0.0
+    
+    if month_in_policy_year != 1:
         return 0.0
 
     if inputs.withdrawal_method == "pct_of_boy_av":
@@ -167,28 +171,13 @@ def calc_withdrawal_for_month(
         prior_policy_year_interest=prior_policy_year_interest,
     )
 
-    # Default: no withdrawal this month — but still return free-budget info from state
-    if not (month_in_policy_year == 1 and policy_year >= 2):
-        res = WithdrawalResult(
-            withdrawal_amount=0.0,
-            free_limit_ytd=float(state.free_limit_ytd),
-            free_used_this_txn=0.0,
-            free_used_ytd_eop=float(state.free_used_ytd),
-            free_remaining_eop=float(state.free_remaining_ytd),
-            excess_amount=0.0,
-            surrender_charge_pct=0.0,
-            surrender_charge_amount=0.0,
-            mva_factor=float(mva_factor),
-            mva_amount_subject=0.0,
-            mva_amount=0.0,
-            penalty_total=0.0,
-        )
-        return state, res
+
 
     # Requested withdrawal per user instruction
     wd_req = compute_user_withdrawal_amount(
         inputs=inputs,
         policy_year=policy_year,
+        month_in_policy_year=month_in_policy_year,
         year_bop_av=year_bop_av,
         prior_policy_year_interest=prior_policy_year_interest,
     )
@@ -214,7 +203,7 @@ def calc_withdrawal_for_month(
     mva_amount = float(mva_amount_subject) * float(mva_factor)
 
     # “Penalty / adjustment total” per your request
-    penalty_total = float(surrender_charge_amount) + float(mva_amount)
+    penalty_total = float(surrender_charge_amount) - float(mva_amount)
 
     new_state = WithdrawalState(
         policy_year=policy_year,

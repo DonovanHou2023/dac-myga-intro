@@ -1,0 +1,7 @@
+[theme]
+base="light"
+primaryColor="#2563eb"                 # calm blue
+backgroundColor="#f8fafc"              # very light slate (not pure white)
+secondaryBackgroundColor="#ffffff"     # cards/panels
+textColor="#0f172a"                    # slate text
+font="sans serif"

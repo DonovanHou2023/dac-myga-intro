@@ -1,7 +1,7 @@
 schema_version: 1
 
-product_code: MYGA5
-term_years: 5
+product_code: MYGA7
+term_years: 7
 
 features:
   minimum_guaranteed_rate: 0.01
@@ -20,25 +20,18 @@ features:
       3: 0.07
       4: 0.06
       5: 0.05
+      6: 0.04
+      7: 0.03
     after_term:
       default_charge_pct: 0.00
       description: "Surrender charge is 0% for policy year > term_years."
 
   free_partial_withdrawal:
     enabled: true
-
-    # Choose ONE method. The engine will calculate based on this.
-    # Options:
-    # - prior_year_interest_credited
-    # - pct_of_boy_account_value
     method: pct_of_boy_account_value
-
     params:
       pct: 0.10
-
     description: "Free withdrawal provision (single-method flag used by the model)."
-
-  minimum_guaranteed_rate: 0.01
 
   guarantee_funds:
     mfv:
@@ -49,7 +42,7 @@ features:
       rate_years: 10
       rate_after_years_annual: 0.0
       description: "PFV rate guaranteed for 10 years at 1.91% annually."
-      
+
 assumptions:
   mortality_table_key: null
   lapse_model_key: null

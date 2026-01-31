@@ -176,69 +176,7 @@ st.set_page_config(page_title="Donovan's MYGA Intro Toolkit", layout="wide")
 st.markdown(
     """
     <style>
-    /* --- Sidebar background --- */
-    section[data-testid="stSidebar"]{
-        background: #eef4ff !important;              /* soft blue wash */
-        border-right: 1px solid #dbe7ff !important;
-    }
-
-    /* --- Make each expander look like a card (big visual win) --- */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] details {
-        background: #f5f9ff !important;              /* slightly lighter than sidebar */
-        border: 1px solid #dbe7ff !important;
-        border-radius: 14px !important;
-        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03) !important;
-        margin-bottom: 10px !important;
-        overflow: hidden;
-    }
-
-    /* Expander header */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] summary {
-        padding: 10px 12px !important;
-        font-weight: 800 !important;
-        color: #0f172a !important;
-    }
-
-    /* Expander content padding */
-    section[data-testid="stSidebar"] div[data-testid="stExpander"] details > div {
-        padding: 8px 12px 12px 12px !important;
-    }
-
-    /* --- Widgets: soft tinted, not white blocks --- */
-    section[data-testid="stSidebar"] input,
-    section[data-testid="stSidebar"] textarea,
-    section[data-testid="stSidebar"] select,
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div,
-    section[data-testid="stSidebar"] [data-baseweb="input"] > div {
-        background: #f2f7ff !important;              /* soft tint */
-        border: 1px solid #cfe0ff !important;
-        border-radius: 12px !important;
-        color: #0f172a !important;
-    }
-
-    /* Hover */
-    section[data-testid="stSidebar"] input:hover,
-    section[data-testid="stSidebar"] textarea:hover,
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover,
-    section[data-testid="stSidebar"] [data-baseweb="input"] > div:hover {
-        border-color: #b7d0ff !important;
-    }
-
-    /* Focus ring (primary blue) */
-    section[data-testid="stSidebar"] input:focus,
-    section[data-testid="stSidebar"] textarea:focus,
-    section[data-testid="stSidebar"] [data-baseweb="select"] > div:focus-within,
-    section[data-testid="stSidebar"] [data-baseweb="input"] > div:focus-within {
-        border-color: #2563eb !important;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
-        outline: none !important;
-    }
-
-    /* Sidebar divider softer */
-    section[data-testid="stSidebar"] hr {
-        border-top: 1px solid #dbe7ff !important;
-    }
-
+    ...
     </style>
     """,
     unsafe_allow_html=True,
@@ -253,7 +191,7 @@ logo_black_path = Path("assets/logo_black.png")
 cols = st.sidebar.columns([1, 3], vertical_alignment="center")
 with cols[0]:
     if logo_black_path.exists():
-        st.image(str(logo_black_path), width=44)
+        st.image(str(logo_black_path), width=64)
 with cols[1]:
     st.markdown("### 多师的精算禅院")
 

@@ -1,125 +1,114 @@
 ---
-title: Donovan's Actuarial Class
-subtitle: Multi-year Guaranteed Annuity (MYGA) Foundation
+title: Homepage
+subtitle: How to use this site & what this course is about
 ---
 
-# DAC MYGA Intro — Course Home
+# Homepage
 
-Welcome. This site contains the **class materials and homework** for the **MYGA Foundation Course** — a hands-on training program focused on **product mechanics, policy illustrations, and statutory reserving intuition**.
+!!! abstract "Program focus"
+    This site hosts the **MYGA Foundation Course**, a hands-on program focused on:
+    
+    - understanding **MYGA contract mechanics**
+    - translating contracts into **cash flow logic**
+    - building a **Python-based illustration engine**
+    - developing **statutory reserving intuition** (CARVM → VM-22)
+
+    The material mirrors how annuity products are analyzed, implemented,
+    and explained in real actuarial work.
 
 ---
 
 ## Instructor
 
-**Donovan Hou** — FSA, MAAA, MBA (Chicago Booth)
-
-!!! info "Profile highlights"
-    - Actuarial & Analytics Leader (Fortune 500, AVP-level roles)
-    - Career Coach & Mentor since **2019** (Actuarial / Analytics)
-    - **Single-mentor, high-touch** model — no agency, no outsourcing
-    - Track record: **20+ students supported**, resulting in **30+ actuarial offers** (internship + full-time)
-
-I am a Fellow of the Society of Actuaries (FSA), MAAA, and an actuarial and analytics leader currently working at a Fortune 500 insurance company. My professional experience spans life and annuity products, actuarial modeling, statutory and financial reporting, and analytics modernization.
-
-In parallel with my industry career, I began providing **actuarial and analytics career coaching in 2019**. This practice is designed as a **single-mentor, high-touch** model — all strategy, instruction, and feedback are delivered directly by me.
-
-Over the past seven years, I have supported **20+ students and early-career professionals**, resulting in **30+ actuarial internship and full-time offers** (actuarial field only).
+!!! info "Donovan Hou — FSA, MAAA, MBA (Chicago Booth)"
+    - Actuarial & analytics leader at a Fortune 500 insurance company  
+    - Experience across **life & annuity products**, modeling, statutory / financial reporting  
+    - Active in actuarial modernization and analytics transformation  
+    - Career mentor since **2019**, focused on long-term skill building  
 
 !!! tip "Contact"
-    Email: **donovan.hoou@gmail.com**
+    📧 **donovan.hoou@gmail.com**
 
 ---
 
-## What This Course Offers
+## What this course offers?
 
-This course teaches MYGA products the way they are analyzed in real work:  
-**contract features → cash flow mechanics → model outputs → reserving intuition**.
+<div class="grid cards" markdown>
 
-### Core Focus Areas
+-   **Product mechanics**
+    
+    ---
+    
+    - MYGA crediting structure  
+    - Surrender charges & timing  
+    - Market Value Adjustment (MVA)  
+    - Guaranteed funds / nonforfeiture logic  
+    - Partial withdrawal provisions  
 
-- Annuity fundamentals
-  - Deferred vs. immediate annuities
-  - Risk allocation across phases
-- MYGA mechanics
-  - Interest crediting
-  - Guaranteed fund / MGSV
-  - Surrender charges and cash surrender values
-  - Partial withdrawal provisions
-- Policy illustration modeling (Python)
-  - Monthly projections
-  - Policy-year logic
-  - Clean, auditable outputs
-- Reserving intuition
-  - CARVM concepts
-  - VM-22 framework (conceptual and explainable, not black-box)
+-   **Modeling & implementation**
+    
+    ---
+    
+    - Monthly projection framework  
+    - Policy-year vs calendar-year logic  
+    - Clean, auditable Python design  
+    - Outputs suitable for review and discussion  
 
----
+-   **Reserving intuition**
+    
+    ---
+    
+    - CARVM concepts and path thinking  
+    - How benefits drive reserves  
+    - How assumptions affect valuation  
+    - Structured understanding of **VM-22**  
 
-## Course Structure
-
-| Component | Description |
-|---|---|
-| Delivery | One-on-one online instruction |
-| Format | Lecture + guided walkthrough |
-| Homework | Conceptual, numerical, and Python exercises |
-| Tools | Python, Jupyter / Colab, Markdown |
-| Outcome | Resume-ready project artifacts |
-
-!!! note "Study method"
-    Each session is paired with homework. The homework is designed to progressively build a **MYGA illustration engine** that you can reuse and extend.
+</div>
 
 ---
 
-## MYGA Term Durations Covered
+## How the course is structured?
 
-We explicitly model and compare MYGA products with different terms:
+This course is built around **three tightly connected components**:
 
-| Product Term | Included |
-|---|---|
-| 5-Year MYGA | ✓ |
-| 7-Year MYGA | ✓ |
-| 10-Year MYGA | ✓ |
+- **Classes** — learn concepts, product mechanics, and valuation logic  
+- **Homework** — test understanding with conceptual and Python exercises  
+- **Projects** — milestone builds that integrate everything into reusable tools  
 
-You will see how term length affects:
-- interest guarantees
-- surrender charge schedules
-- renewal behavior
-- cash surrender values
+!!! note "Learning philosophy"
+    Projects are designed as **working systems**, not demos.  
+    The goal is to leave with intuition *and* code you can explain.
 
 ---
 
-## What You Will Be Able To Do
+## Course Roadmap (Classes)
 
-By the end of this course, you should be able to:
+The course is delivered across **five core classes**, each building toward a complete
+MYGA illustration and reserving system.
 
-- Explain MYGA products clearly and accurately
-- Translate contract features into cash flow logic
-- Build a MYGA illustration model in Python
-- Analyze how withdrawals, surrender charges, and guarantees interact
-- Communicate mechanics using structured tables, formulas, and documentation
+| Class | Focus | What you’ll learn |
+|---|---|---|
+| **[Class 1](class_materials/cm1.md)** | Actuarial foundations | Probability, survival notation, life contingencies, time value of money |
+| **[Class 2](class_materials/cm2.md)** | Annuities & MYGA basics | MYGA structure, crediting, guarantees, withdrawals, MVA intuition |
+| **[Class 3](class_materials/cm3.md)** | Assets & ALM | Bond cash flows, pricing, duration, ALM logic behind MYGA products |
+| **[Class 4](class_materials/cm4.md)** | CARVM reserving | Benefit paths, maximum-value logic, discounting, statutory reserve intuition |
+| **[Class 5](class_materials/cm5.md)** | VM-22 framework | Deterministic & stochastic reserves, surplus testing, VM-22 vs CARVM |
 
----
-
-## Lessons
-
-Course content is organized under the `lessons/` directory. Each lesson typically includes:
-- class material (`CM*.md`)
-- homework (`HW*.md`)
-- supporting notes/examples (when applicable)
-
-!!! abstract "Maintaining the site"
-    To add a new lesson:
-    1. Create a folder such as `lessons/02-...`
-    2. Add `CM2.md`, `HW2.md`, etc.
-    3. Update navigation in `mkdocs.yml` (recommended)
+!!! note "How to use this roadmap"
+    Click any class to jump directly to its material.  
+    Homework and projects map **one-to-one** with these class topics.
 
 ---
 
-## Recommended Workflow
+## What you will be able to do?
 
-1. Read the class material before the session
-2. Attend the live lesson
-3. Complete homework (concept + Python)
-4. Review feedback and iterate
+!!! success "By the end of this course"
+    - Explain MYGA products clearly and accurately  
+    - Translate contract language into **cash flow logic**  
+    - Build a MYGA illustration engine in Python  
+    - Analyze withdrawals, surrender charges, MVA, and guarantees together  
+    - Communicate mechanics using structured tables, formulas, and documentation  
 
-This mirrors how actuarial work is reviewed and improved in professional settings.
+---
+
+*Use the navigation above to start with Classes, or jump directly into Projects if you prefer learning by building.*

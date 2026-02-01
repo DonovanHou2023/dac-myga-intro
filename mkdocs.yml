@@ -1,54 +1,65 @@
-site_name: Donovan's Actuarial Class - MYGA Foundation
+site_name: 多师的精算禅院 | Introduction to MYGA
+site_description: MYGA · Reserving · VM-22 · Python
 site_url: https://DonovanHou2023.github.io/dac-myga-intro
+
+repo_url: https://github.com/DonovanHou2023/dac-myga-intro
+repo_name: dac-myga-intro
+
 docs_dir: docs
 site_dir: mkdocs_site
+
 nav:
   - Home: index.md
+
   - Classes:
       - Class 1: class_materials/cm1.md
       - Class 2: class_materials/cm2.md
       - Class 3: class_materials/cm3.md
       - Class 4: class_materials/cm4.md
       - Class 5: class_materials/cm5.md
+
   - Homework:
       - Homework 1: homeworks/hw1.md
       - Homework 2: homeworks/hw2.md
       - Homework 3: homeworks/hw3.md
       - Homework 4: homeworks/hw4.md
       - Homework 5: homeworks/hw5.md
+
   - Projects:
       - Project A — MYGA Illustration Engine:
-        - Overview (Start Here): projects/proj_A_illustration.md
-        - Step 1A — Illustration Inputs:
-            projects/proj_A1a_illustration_input.md
-        - Step 1B — Product Specs & Catalog:
-            projects/proj_A1b_product_spec.md
-        - Step 2 — MVA Factor Calculation:
-            projects/proj_A2_mva_calculation.md
-        - Step 3 — Withdrawal Engine (Free vs Excess):
-            projects/proj_A3_withdrawals_calculation.md
-        - Step 4 — Guarantee Funds (MFV / PFV):
-            projects/proj_A4_guarantee_fund_calculation.md
-        - Step 5 — Account Value Roll-Forward:
-            projects/proj_A5_account_value_calculation.md
-        - Step 6 — Cash Surrender Value (CSV):
-            projects/proj_A6_cash_surrender_value_calculation.md
-        - Step 7 — Illustration Orchestration:
-            projects/proj_A7_illustration_calculation.md
-      - Project B: projects/proj_B_carvm_calculation.md
+          - Overview (Start Here): projects/proj_A_illustration.md
+          - Step 1A — Illustration Inputs: projects/proj_A1a_illustration_input.md
+          - Step 1B — Product Specs & Catalog: projects/proj_A1b_product_spec.md
+          - Step 2 — MVA Factor Calculation: projects/proj_A2_mva_calculation.md
+          - Step 3 — Withdrawal Engine (Free vs Excess): projects/proj_A3_withdrawals_calculation.md
+          - Step 4 — Guarantee Funds (MFV / PFV): projects/proj_A4_guarantee_fund_calculation.md
+          - Step 5 — Account Value Roll-Forward: projects/proj_A5_account_value_calculation.md
+          - Step 6 — Cash Surrender Value (CSV): projects/proj_A6_cash_surrender_value_calculation.md
+          - Step 7 — Illustration Orchestration: projects/proj_A7_illustration_calculation.md
+      - Project B — CARVM Reserve: projects/proj_B_carvm_calculation.md
+
 theme:
-  name: material
-  features:
-    - navigation.tabs
-    - navigation.tabs.sticky
-  palette:
-    scheme: default
-    primary: '#0B3D91'    # deep blue primary
-    accent: '#0A75D1'     # slightly brighter accent
+    name: material
+    font:
+        text: Noto Sans SC
+        code: Roboto
+
+    features:
+        - navigation.tabs
+        - navigation.tabs.sticky
+
+  # 灰阶：墨黑 + 温灰
+    palette:
+        primary: white
+        accent:  teal
+
+    logo: assets/logo_black.png
 
 markdown_extensions:
   - admonition
   - codehilite
+  - attr_list
+  - md_in_html
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -56,11 +67,17 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.tabbed:
+      alternate_style: true
   - toc:
       permalink: true
 
 plugins:
   - search
+
+extra_css:
+  - https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap
+  - stylesheets/extra.css
 
 extra_javascript:
   # MathJax for rendering LaTeX-style math ($...$ and $$...$$)

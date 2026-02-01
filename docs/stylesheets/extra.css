@@ -1,0 +1,128 @@
+:root {
+  --md-text-font: "Noto Serif SC", "Source Serif 4",
+                  "PingFang SC", "Hiragino Sans GB",
+                  "Microsoft YaHei", serif;
+
+  --md-code-font: "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* =========================================================
+   Minimal Paper Cards (MkDocs Material)
+   Target: .grid.cards (Material "cards" pattern)
+   ========================================================= */
+
+/* Card container */
+.md-typeset .grid.cards > ul > li {
+  /* Paper feel */
+  background: #FAFAF6;            /* warm paper */
+  border: 1px solid #E6E6DE;      /* soft warm gray */
+  border-radius: 12px;
+
+  /* Calm spacing */
+  padding: 1.05rem 1.15rem;
+
+  /* Subtle depth (no heavy shadow) */
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* Card hover: slightly more defined, still calm */
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: #D6D6CC;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+/* Card text default (keep it quiet) */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid.cards > ul > li p {
+  color: #2A2A2A;                 /* ink dark gray */
+}
+
+/* Titles or emphasized text inside cards */
+.md-typeset .grid.cards > ul > li strong,
+.md-typeset .grid.cards > ul > li b {
+  font-weight: 600;
+  color: #1F1F1F;
+}
+
+/* Optional: if your cards include headings inside */
+.md-typeset .grid.cards > ul > li h3,
+.md-typeset .grid.cards > ul > li h4 {
+  margin-top: 0.2rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #1F1F1F;
+}
+
+/* ---------------------------------------------------------
+   Bullet list styling INSIDE cards (smaller + lighter)
+   --------------------------------------------------------- */
+
+/* Tighten list container spacing */
+.md-typeset .grid.cards > ul > li ul,
+.md-typeset .grid.cards > ul > li ol {
+  margin: 0.35rem 0 0.1rem 0;     /* tighter than default */
+  padding-left: 1.1rem;          /* slightly reduced indent */
+}
+
+/* Smaller, lighter bullet text */
+.md-typeset .grid.cards > ul > li ul li,
+.md-typeset .grid.cards > ul > li ol li {
+  font-size: 0.7rem;             /* smaller */
+  font-weight: 400;               /* lighter */
+  line-height: 1.35;              /* tighter */
+  margin: 0.12rem 0;              /* tighter vertical spacing */
+  color: #3A3A3A;                 /* softer ink */
+}
+
+/* Make bullet marker slightly softer (optional) */
+.md-typeset .grid.cards > ul > li ul li::marker,
+.md-typeset .grid.cards > ul > li ol li::marker {
+  color: #7A7A72;                 /* warm gray marker */
+}
+
+/* Links inside cards (optional, keeps harmony with ink palette) */
+.md-typeset .grid.cards > ul > li a {
+  color: #2E5E5A;                 /* muted teal-ink */
+  text-decoration: none;
+}
+.md-typeset .grid.cards > ul > li a:hover {
+  text-decoration: underline;
+}
+
+/* ============================
+   Headings — Minimal Ink Style
+   ============================ */
+
+/* H1 — page title */
+.md-typeset h1 {
+  font-weight: 600;
+  color: #1A1A1A;              /* deep ink, not pure black */
+  letter-spacing: 0.01em;
+  margin-top: 0;
+  margin-bottom: 1.6rem;
+}
+
+/* H2 — section headers */
+.md-typeset h2 {
+  font-weight: 550;            /* slightly lighter than h1 */
+  color: #222222;              /* calm dark ink */
+  letter-spacing: 0.01em;
+  margin-top: 2.2rem;
+  margin-bottom: 0.9rem;
+}
+
+/* H3 — subsection headers */
+.md-typeset h3 {
+  font-weight: 500;
+  color: #4A4A4A;              /* warm gray ink */
+  margin-top: 1.6rem;
+  margin-bottom: 0.6rem;
+}
+
+/* Optional: tighten paragraph spacing after headers */
+.md-typeset h2 + p,
+.md-typeset h3 + p {
+  margin-top: 0.4rem;
+}

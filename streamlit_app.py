@@ -238,6 +238,15 @@ with st.sidebar.expander("Generic Parameters", expanded=True):
 
     gender = st.selectbox("Gender", ["M", "F"], index=0)
 
+    installment_years = st.number_input(
+        "Installment certain period (years)",
+        min_value=1,
+        max_value=30,
+        value=10,
+        step=1,
+        help="Used in annuity option 1 (installment certain). Only applied at year-end (month 12).",
+    )
+
 with st.sidebar.expander("Crediting Rate", expanded=False):
     initial_rate = pct_slider_sidebar("Initial crediting rate (annual)", default_pct=default_initial_rate, key="initial_rate")
     renewal_rate = pct_slider_sidebar(
@@ -296,6 +305,7 @@ def run_and_store() -> None:
         renewal_rate=float(renewal_rate),
 
         projection_years=int(projection_years),
+        installment_years=int(installment_years),
 
         withdrawal_method=wd_method,
         withdrawal_value=float(wd_value),
@@ -502,9 +512,13 @@ This is the monthly ordering used in `illustration.py`:
 # =========================================================
 # ILLUSTRATION TAB
 # =========================================================
+# =========================================================
+# ILLUSTRATION TAB
+# =========================================================
 with tab_illustration:
-    
+
     st.header("Illustration Results")
+
     run = st.button("Run Illustration", type="primary", key="run_illustration_btn")
     if run:
         run_and_store()
@@ -514,40 +528,83 @@ with tab_illustration:
     if df is None:
         st.info("Click **Run Illustration** to generate results.")
     else:
+        # -------------------------
+        # (Optional) Quick diagnostics: show missing expected cols
+        # -------------------------
+        expected_core = [
+            "meta_policy_month",
+            "meta_policy_year",
+            "meta_month_in_policy_year",
+            "meta_annual_rate",
+            "av_eop",
+            "csv_final",
+        ]
+        missing_core = [c for c in expected_core if c not in df.columns]
+
+        with st.expander("Diagnostics (column sanity check)", expanded=False):
+            st.caption("Helps catch naming mismatches between illustration.py outputs and Streamlit display.")
+            if missing_core:
+                st.warning(f"Missing expected core columns: {missing_core}")
+            else:
+                st.success("Core columns present.")
+            st.caption(f"Total columns returned: {len(df.columns)}")
+            st.caption("First 25 columns:")
+            st.write(list(df.columns)[:25])
+
+        # -------------------------
+        # Exhibit selector
+        # -------------------------
         with st.expander("Exhibits / Columns to show", expanded=True):
             st.caption("Default view shows Account Value + CSV. Add more exhibits below.")
+
+            show_meta = st.checkbox("Add meta/time exhibits (meta_*)", value=False, key="show_meta")
             show_withdrawals = st.checkbox("Add withdrawal exhibits (wd_*)", value=False, key="show_wd")
             show_mva_cols = st.checkbox("Add MVA exhibits (mva_*)", value=False, key="show_mva")
             show_guarantee = st.checkbox("Add guarantee fund exhibits (gf_*)", value=False, key="show_gf")
-            show_meta = st.checkbox("Add meta/time exhibits (meta_*)", value=False, key="show_meta")
 
-        # IMPORTANT: your CSV is csv_* but final is `csv_final`
-        prefixes = ["av_", "csv_"]
+            # NEW: annuity exhibits (from your upcoming annuitization work)
+            show_annuity = st.checkbox("Add annuity exhibits (ann_*)", value=False, key="show_ann")
+
+        # -------------------------
+        # Build prefix list (mapped to illustration.py outputs)
+        # -------------------------
+        prefixes = ["av_", "csv_"]  # default view
+
         if show_meta:
-            prefixes += ["meta_"]
+            prefixes.append("meta_")
         if show_withdrawals:
-            prefixes += ["wd_"]
+            prefixes.append("wd_")
         if show_mva_cols:
-            prefixes += ["mva_"]
+            prefixes.append("mva_")
         if show_guarantee:
-            prefixes += ["gf_"]
+            prefixes.append("gf_")
+        if show_annuity:
+            prefixes.append("ann_")  # NEW
+
+        # Guard: only keep prefixes that actually exist in df (prevents empty display confusion)
+        prefixes = [p for p in prefixes if any(c.startswith(p) for c in df.columns)]
 
         view_df = select_columns_by_prefix(df, prefixes)
 
-        st.dataframe(
-            style_and_format(view_df),
-            width="stretch",
-            height=560,
-        )
+        # Helpful if user selects ann_ but you haven’t added columns yet
+        if view_df.empty:
+            st.warning(
+                "No columns matched your selected prefixes. "
+                "This usually means the engine outputs don't have those prefix names yet."
+            )
+        else:
+            st.dataframe(
+                style_and_format(view_df),
+                width="stretch",
+                height=560,
+            )
 
-        st.download_button(
-            "Download current view (CSV)",
-            data=view_df.to_csv(index=False).encode("utf-8"),
-            file_name=f"{product.lower()}_illustration_view.csv",
-            mime="text/csv",
-        )
-
-
+            st.download_button(
+                "Download current view (CSV)",
+                data=view_df.to_csv(index=False).encode("utf-8"),
+                file_name=f"{product.lower()}_illustration_view.csv",
+                mime="text/csv",
+            )
 # =========================================================
 # SUMMARY TAB (NEW)
 # =========================================================

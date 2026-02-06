@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, Any
+from pathlib import Path
+from typing import Dict, Any, Optional
 
 import pandas as pd
 
@@ -27,16 +28,23 @@ from dac_myga_intro.engine.guarantee_funds import (
 )
 from dac_myga_intro.engine.csv import calculate_cash_surrender_value
 
+# NEW: annuity benefits
+from dac_myga_intro.engine.annuity_benefits import (
+    load_annuity_tables,
+    annuity_monthly_payment,
+)
+
 
 # -----------------------
 # Outputs: column grouping
 # -----------------------
-# meta_* : time index & rate info
+# meta_* : time index & rate info (NOW includes meta_attained_age)
 # wd_*   : withdrawals mechanics (includes SC + MVA + penalty_total)
-# mva_*  : factor only (optional; you can keep this minimal)
+# mva_*  : factor only
 # av_*   : account value projection
 # gf_*   : guarantee fund projection (MFV/PFV)
 # csv_*  : cash surrender values + diagnostics
+# ann_*  : annuity benefit outputs (only populated at year-end months)
 
 
 def build_annual_rate_schedule(
@@ -54,7 +62,11 @@ def build_annual_rate_schedule(
     """
     sched: Dict[int, float] = {}
     for yr in range(1, projection_years + 1):
-        sched[yr] = float(initial_rate) if yr <= term_years else max(float(renewal_rate), float(minimum_guaranteed_rate))
+        sched[yr] = (
+            float(initial_rate)
+            if yr <= term_years
+            else max(float(renewal_rate), float(minimum_guaranteed_rate))
+        )
     return sched
 
 
@@ -62,30 +74,21 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
     """
     Monthly projection orchestrator.
 
-    Monthly order (per your latest design):
-      (0) compute MVA factor for the month (factor only)
-      (1) snapshot BOP values
-      (2) withdrawals (updates free budget; computes SC and MVA on excess; returns penalty_total)
-      (3) guarantee funds roll-forward (reduce by withdrawal only; then credit)
-      (4) account value roll-forward (withdrawal + penalty_total; then interest)
-          + optional AV floor vs guarantee funds (added here)
-      (5) CSV calculation at time t:
-          - full surrender assumed: surrender_amount = AV_EOP
-          - uses free_remaining_at_calc to exempt part from SC and MVA
-          - computes SC, then applies MVA factor on post-SC subject amount
-          - floors by max(MFV_EOP, PFV_EOP)
+    Adds:
+      - meta_attained_age = issue_age + policy_year
+      - annuity benefits computed ONLY at year-end months (month_in_year == 12)
+        using ann_amount_applied = AV_EOP (post-floor)
 
-    Returns: pandas DataFrame ready for Streamlit.
+    NOTE: installment certain requires a "years" input. Since you haven't added it to
+    IllustrationInputs yet, we pull it with getattr and default to 10.
+    Recommended: add `annuitization_years: Optional[int]` to IllustrationInputs
+    and pass it from Streamlit.
     """
 
     spec = catalog.get(inputs.product_code)
     term_years = int(spec.term_years)
 
-    # -----------------------
     # Projection length (years)
-    # - If inputs.projection_years is absent/None or <=0, default to term_years
-    # - Allow projecting beyond term_years if you want (renewal_rate matters then)
-    # -----------------------
     proj_years_raw = getattr(inputs, "projection_years", None)
     if proj_years_raw is None or int(proj_years_raw) <= 0:
         projection_years = term_years
@@ -93,7 +96,7 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
         projection_years = int(proj_years_raw)
 
     total_months = projection_years * 12
-    term_months = term_years * 12  # used for term-end surrender charge override hook
+    term_months = term_years * 12
 
     # Crediting schedule for AV
     rate_by_year = build_annual_rate_schedule(
@@ -104,7 +107,7 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
         minimum_guaranteed_rate=float(spec.features.minimum_guaranteed_rate),
     )
 
-    # Prior-year interest credited tracking (for withdrawal method / free rule option)
+    # Prior-year interest credited tracking
     prior_year_interest = 0.0
     current_year_interest_accum = 0.0
 
@@ -114,9 +117,7 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
     # Withdrawal state
     wd_state: WithdrawalState = init_withdrawal_state()
 
-    # -----------------------
-    # Guarantee fund params MUST come from YAML product features
-    # -----------------------
+    # Guarantee fund params from YAML
     gf_spec = spec.features.guarantee_funds
 
     mfv_params = MinimumFundValueParams(
@@ -133,6 +134,16 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
         inputs.premium, mfv_params, pfv_params
     )
 
+    # -----------------------
+    # NEW: Load annuity payout tables once
+    # Adjust path as needed to match your repo layout.
+    # You said: src/data/annuity_tables/...
+    # -----------------------
+    annuity_tables_root = Path("src/dac_myga_intro/data/annuity_tables")
+    ann_tables = load_annuity_tables(annuity_tables_root)
+
+    installment_years = int(inputs.installment_years)
+
     rows: list[dict[str, Any]] = []
 
     for pm in range(1, total_months + 1):
@@ -140,9 +151,10 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
         month_in_year = (pm - 1) % 12 + 1
         annual_rate = float(rate_by_year[policy_year])
 
-        # -----------------------
-        # (0) MVA factor first (factor only)
-        # -----------------------
+        # meta attained age = issue_age + policy_year
+        attained_age = float(inputs.issue_age) + float(policy_year)
+
+        # (0) MVA factor
         mva_enabled = bool(spec.features.mva.enabled)
         have_mva_rates = (
             inputs.mva_initial_index_rate is not None
@@ -151,7 +163,6 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
 
         mva_factor = 0.0
         if mva_enabled and have_mva_rates:
-            # N months remaining: v0 assumption -> MVA period ends at term end
             if inputs.mva_months_remaining_override is not None:
                 n_remaining = int(inputs.mva_months_remaining_override)
             else:
@@ -165,19 +176,14 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
                 )
             ).mva_factor
 
-        # -----------------------
         # (1) BOP snapshots
-        # -----------------------
         av_bop = float(av)
         gf_mfv_bop = float(gf_state.mfv)
         gf_pfv_bop = float(gf_state.pfv)
 
-        # BOY AV: meaningful at month 1 (but safe to pass av_bop for now)
-        year_bop_av = av_bop if month_in_year == 1 else av_bop
+        year_bop_av = av_bop  # ok for v0
 
-        # -----------------------
-        # (2) Withdrawals (includes SC + MVA on excess; returns penalty_total)
-        # -----------------------
+        # (2) Withdrawals
         wd_state, wd_res = calc_withdrawal_for_month(
             catalog=catalog,
             inputs=inputs,
@@ -190,11 +196,7 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
             mva_factor=float(mva_factor),
         )
 
-        # -----------------------
         # (3) Guarantee funds roll-forward
-        # - reduce by withdrawal ONLY (not SC/MVA/penalties)
-        # - then credit monthly based on MFV/PFV rules
-        # -----------------------
         gf_state = apply_surrender_to_guarantee_funds(
             gf_state, float(wd_res.withdrawal_amount)
         )
@@ -211,11 +213,7 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
         gf_mfv_eop = float(gf_state.mfv)
         gf_pfv_eop = float(gf_state.pfv)
 
-        # -----------------------
         # (4) Account Value roll-forward
-        # - penalty should include SC + MVA portions on excess (wd_res.penalty_total)
-        # - optional floor: AV_EOP floored by max(MFV_EOP, PFV_EOP)
-        # -----------------------
         av_result = roll_forward_account_value(
             av_bop=av_bop,
             withdrawal=float(wd_res.withdrawal_amount),
@@ -225,34 +223,28 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
 
         av_eop = float(av_result.av_eop)
 
-        # AV floor to guarantee funds (as you requested)
+        # AV floor to guarantee funds
         nff_floor = max(gf_mfv_eop, gf_pfv_eop)
         av_eop_floored = max(av_eop, nff_floor)
 
-        # If floored, update the result "in-place" for downstream CSV + next month AV
-        # (keep interest_credit as originally calculated for transparency; adjust av_eop only)
-        av = av_eop_floored
+        av = av_eop_floored  # carry forward
 
-        # Prior-year interest credited tracking (based on interest credit, not floor bump)
+        # Prior-year interest credited tracking
         current_year_interest_accum += float(av_result.interest_credit)
         if month_in_year == 12:
             prior_year_interest = float(current_year_interest_accum)
             current_year_interest_accum = 0.0
 
-        # -----------------------
-        # (5) CSV calculation at time t (full surrender)
-        # - use AV_EOP AFTER floor
-        # - use free remaining at calc to exempt part from SC/MVA
-        # - SC pct override example at term-end month (month 60 for 5-year)
-        # - floor by guarantee funds
-        # -----------------------
+        # (5) CSV calculation
         sc_pct_override = 0.0 if pm == term_months else None
 
         csv_out = calculate_cash_surrender_value(
             av_eop=float(av),
-            surrender_amount=float(av),  # full surrender at time t
+            surrender_amount=float(av),
             free_remaining_at_calc=float(wd_res.free_remaining_eop),
-            surrender_charge_pct=float(catalog.surrender_charge(inputs.product_code, policy_year)),
+            surrender_charge_pct=float(
+                catalog.surrender_charge(inputs.product_code, policy_year)
+            ),
             surrender_charge_pct_override=sc_pct_override,
             mva_factor=float(mva_factor),
             gf_mfv_eop=float(gf_mfv_eop),
@@ -260,8 +252,40 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
         )
 
         # -----------------------
-        # Assemble row
+        # NEW: Annuity benefits at YEAR END ONLY
+        # - A amount = AV_EOP (post-floor) at month 12
         # -----------------------
+        ann_is_year_end = bool(month_in_year == 12)
+        ann_amount_applied: Optional[float] = None
+        ann_installment_monthly_payment: Optional[float] = None
+        ann_single_life_monthly_payment: Optional[float] = None
+
+        if ann_is_year_end:
+            ann_amount_applied = float(av)
+
+            # Option 1: installment certain
+            ann_installment_monthly_payment = float(
+                annuity_monthly_payment(
+                    amount_applied=float(ann_amount_applied),
+                    option="installment_certain",
+                    tables=ann_tables,
+                    years=int(installment_years),
+                )
+            )
+
+            # Option 2: single life no guarantee
+            # Use attained_age (issue_age + policy_year) and inputs.gender
+            ann_single_life_monthly_payment = float(
+                annuity_monthly_payment(
+                    amount_applied=float(ann_amount_applied),
+                    option="single_life_no_guarantee",
+                    tables=ann_tables,
+                    attained_age=float(attained_age),
+                    gender=str(inputs.gender),
+                )
+            )
+
+        # Assemble row
         rows.append(
             {
                 # META
@@ -270,10 +294,11 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
                 "meta_month_in_policy_year": int(month_in_year),
                 "meta_annual_rate": float(annual_rate),
                 "meta_issue_age": int(inputs.issue_age),
+                "meta_attained_age": float(attained_age),
                 "meta_gender": str(inputs.gender),
                 "meta_projection_years": int(projection_years),
 
-                # MVA FACTOR (optional columns)
+                # MVA
                 "mva_enabled": bool(mva_enabled and have_mva_rates),
                 "mva_factor": float(mva_factor),
 
@@ -313,12 +338,21 @@ def run_illustration(catalog: ProductCatalog, inputs: IllustrationInputs) -> pd.
                 "csv_nff_floor_used": float(csv_out.nff_floor_used),
                 "csv_final": float(csv_out.csv),
 
-                "csv_amount_subject_to_sc": float(csv_out.amount_subject_to_surrender_charge),
+                "csv_amount_subject_to_sc": float(
+                    csv_out.amount_subject_to_surrender_charge
+                ),
                 "csv_sc_pct_used": float(csv_out.surrender_charge_pct_used),
                 "csv_sc_amt_used": float(csv_out.surrender_charge_amount_used),
                 "csv_amount_subject_to_mva": float(csv_out.amount_subject_to_mva),
                 "csv_mva_factor_used": float(csv_out.mva_factor_used),
                 "csv_mva_amt_used": float(csv_out.mva_amount_used),
+
+                # ANNUITY outputs (mostly None except year-end months)
+                "ann_is_year_end": bool(ann_is_year_end),
+                "ann_amount_applied": float(ann_amount_applied) if ann_amount_applied is not None else None,
+                "ann_installment_years": int(installment_years) if ann_is_year_end else None,
+                "ann_installment_monthly_payment": float(ann_installment_monthly_payment) if ann_installment_monthly_payment is not None else None,
+                "ann_single_life_monthly_payment": float(ann_single_life_monthly_payment) if ann_single_life_monthly_payment is not None else None,
             }
         )
 

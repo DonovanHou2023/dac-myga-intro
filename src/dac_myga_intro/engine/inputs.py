@@ -28,6 +28,7 @@ class IllustrationInputs:
     # --- optional/default fields below ---
     projection_years: int = 15  # 0 => default to product term in illustration.py
     withdrawal_value: float = 0.0
+    installment_years: int = 10 
 
     mva_initial_index_rate: Optional[float] = None
     mva_current_index_rate: Optional[float] = None

@@ -2,89 +2,121 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 import pandas as pd
 
-
-Sex = Literal["male", "female"]
-AnnuityOption = Literal["installment", "life_income_no_guarantee"]
+GenderCategory = Literal["M", "F"]
 
 
 @dataclass(frozen=True)
-class AnnuityTables:
-    installment: pd.DataFrame
-    life_income: pd.DataFrame
+class InstallmentTable:
+    """years -> monthly_per_1000"""
+    df: pd.DataFrame  # columns: years, monthly_per_1000
+
+    def monthly_per_1000(self, years: int) -> float:
+        if years < 1 or years > 30:
+            raise ValueError(f"installment years must be 1..30, got {years}")
+        row = self.df.loc[self.df["years"] == years]
+        if row.empty:
+            raise ValueError(f"installment table missing years={years}")
+        return float(row.iloc[0]["monthly_per_1000"])
 
 
-def load_annuity_tables(base_dir: Path) -> AnnuityTables:
+@dataclass(frozen=True)
+class LifeIncomeTable:
+    """age -> male_per_1000, female_per_1000; supports linear interpolation."""
+    df: pd.DataFrame  # columns: age, male_per_1000, female_per_1000
+
+    def monthly_per_1000(self, age: float, gender: GenderCategory) -> float:
+        if age < 50:
+            return 0.0
+
+        col = "male_per_1000" if gender == "M" else "female_per_1000"
+        x = self.df["age"].astype(float).to_numpy()
+        y = self.df[col].astype(float).to_numpy()
+
+        # clamp above max age to last point (or you can raise instead; your choice)
+        if age <= float(x.min()):
+            return float(y[x.argmin()])
+        if age >= float(x.max()):
+            return float(y[x.argmax()])
+
+        # find neighbors
+        # x is sparse but sorted in your data; ensure sort anyway
+        d = self.df.sort_values("age")
+        x = d["age"].astype(float).to_numpy()
+        y = d[col].astype(float).to_numpy()
+
+        # locate interval
+        import numpy as np
+        idx = int(np.searchsorted(x, age))
+        x0, x1 = float(x[idx - 1]), float(x[idx])
+        y0, y1 = float(y[idx - 1]), float(y[idx])
+
+        # linear interpolation
+        w = (age - x0) / (x1 - x0)
+        return y0 + w * (y1 - y0)
+
+
+@dataclass(frozen=True)
+class AnnuityPayoutTables:
+    installment: InstallmentTable
+    life_no_guarantee: LifeIncomeTable
+
+
+def load_annuity_tables(root: Path) -> AnnuityPayoutTables:
     """
-    Loads CSV tables from src/dac_myga_intro/data/annuity_tables/.
+    root should be something like: Path("src/data/annuity_tables")
     """
-    inst = pd.read_csv(base_dir / "installment_option.csv")
-    life = pd.read_csv(base_dir / "life_income_no_guarantee.csv")
+    inst_path = root / "installment_option.csv"
+    life_path = root / "life_income_no_guarantee.csv"
 
-    # normalize columns
-    inst["years"] = inst["years"].astype(int)
-    life["age"] = life["age"].astype(int)
+    inst = pd.read_csv(inst_path)
+    life = pd.read_csv(life_path)
 
-    return AnnuityTables(installment=inst, life_income=life)
+    # basic schema validation
+    for c in ["years", "monthly_per_1000"]:
+        if c not in inst.columns:
+            raise ValueError(f"installment table missing column: {c}")
 
+    for c in ["age", "male_per_1000", "female_per_1000"]:
+        if c not in life.columns:
+            raise ValueError(f"life income table missing column: {c}")
 
-def _lookup_installment_factor(inst_df: pd.DataFrame, years: int) -> float:
-    row = inst_df.loc[inst_df["years"] == int(years)]
-    if row.empty:
-        raise ValueError(f"Installment table does not contain years={years}")
-    return float(row.iloc[0]["monthly_per_1000"])
-
-
-def _lookup_life_income_factor(life_df: pd.DataFrame, age: int, sex: Sex) -> float:
-    """
-    Simple lookup:
-    - exact age match required for v0
-    Later you can add interpolation.
-    """
-    row = life_df.loc[life_df["age"] == int(age)]
-    if row.empty:
-        raise ValueError(f"Life income table does not contain age={age}")
-
-    col = "male_per_1000" if sex == "male" else "female_per_1000"
-    return float(row.iloc[0][col])
+    return AnnuityPayoutTables(
+        installment=InstallmentTable(df=inst),
+        life_no_guarantee=LifeIncomeTable(df=life),
+    )
 
 
-def monthly_annuity_payment(
+def annuity_monthly_payment(
     *,
-    proceeds: float,
-    option: AnnuityOption,
-    tables: AnnuityTables,
-    installment_years: int | None = None,
-    age: int | None = None,
-    sex: Sex | None = None,
+    amount_applied: float,
+    option: Literal["installment_certain", "single_life_no_guarantee"],
+    tables: AnnuityPayoutTables,
+    years: Optional[int] = None,
+    attained_age: Optional[float] = None,
+    gender: Optional[GenderCategory] = None,
 ) -> float:
     """
-    Returns monthly payment given proceeds (account value at annuitization).
+    Converts amount_applied into monthly payout using table factors.
 
-    Payment formula: (proceeds / 1000) * factor
-
-    Required inputs:
-    - installment: installment_years
-    - life_income_no_guarantee: age, sex
+    Tables are per $1,000, so:
+      monthly_payment = (amount_applied / 1000) * monthly_per_1000
     """
-    proceeds = float(proceeds)
-    if proceeds <= 0:
-        return 0.0
+    amt = max(0.0, float(amount_applied))
 
-    if option == "installment":
-        if installment_years is None:
-            raise ValueError("installment_years is required for installment option")
-        factor = _lookup_installment_factor(tables.installment, installment_years)
+    if option == "installment_certain":
+        if years is None:
+            raise ValueError("installment_certain requires years")
+        f = tables.installment.monthly_per_1000(int(years))
+        return (amt / 1000.0) * float(f)
 
-    elif option == "life_income_no_guarantee":
-        if age is None or sex is None:
-            raise ValueError("age and sex are required for life income option")
-        factor = _lookup_life_income_factor(tables.life_income, age, sex)
+    if option == "single_life_no_guarantee":
+        if attained_age is None or gender is None:
+            raise ValueError("single_life_no_guarantee requires attained_age and gender")
+        f = tables.life_no_guarantee.monthly_per_1000(float(attained_age), gender)
+        return (amt / 1000.0) * float(f)
 
-    else:
-        raise ValueError(f"Unknown option: {option}")
-
-    return (proceeds / 1000.0) * factor
+    raise ValueError(f"unknown option: {option}")
